@@ -29,6 +29,9 @@ public class Robot extends IterativeRobot {
 
 	private Timer runTime = new Timer();
 
+	private static int scissorPos;
+	private static int armPos;
+
 	// Joystick
 	private Joystick driver = new Joystick(0);
 	public XboxController operator = new XboxController(1);
@@ -48,10 +51,10 @@ public class Robot extends IterativeRobot {
 	private Victor leftArm = new Victor(4);
 
 	// Victor scissor lift
-	private TalonSRX scissorLift = new TalonSRX(0);
+	private TalonSRX scissorLift = new TalonSRX(5);
 
 	// right gripping arm
-	private TalonSRX rightArm = new TalonSRX(1);
+	private TalonSRX rightArm = new TalonSRX(6);
 
 	// Gyroscope
 	private Gyro gyro = new ADXRS450_Gyro();
@@ -62,7 +65,7 @@ public class Robot extends IterativeRobot {
 		driveTrain = new DifferentialDrive(leftDrive, rightDrive);
 		scissorLift.configSelectedFeedbackSensor(com.ctre.phoenix.motorcontrol.FeedbackDevice.CTRE_MagEncoder_Relative,
 				0, 0);
-		rightArm.configSelectedFeedbackSensor(com.ctre.phoenix.motorcontrol.FeedbackDevice.CTRE_MagEncoder_Relative, 1,
+		rightArm.configSelectedFeedbackSensor(com.ctre.phoenix.motorcontrol.FeedbackDevice.CTRE_MagEncoder_Relative, 0,
 				0);
 		runTime.reset();
 	}
@@ -107,15 +110,24 @@ public class Robot extends IterativeRobot {
 
 	}
 
+	/**
+	 * This function is run once each time the robot enters teleop mode.
+	 */
+	@Override
+	public void teleopInit() {
+		scissorPos = Math.abs(scissorLift.getSelectedSensorPosition(0));
+		armPos = Math.abs(rightArm.getSelectedSensorPosition(0));
+	}
+
 	@Override
 	public void teleopPeriodic() {
 		// test gyro
 		SmartDashboard.putNumber("Gyro", gyro.getAngle());
-		System.out.println("Here's your angle: " + gyro.getAngle());
+		// System.out.println("Here's your angle: " + gyro.getAngle());
 
 		// test encoder
-		SmartDashboard.putNumber("Scissor lift position: ", scissorLift.getSelectedSensorPosition(0) / 4096);
-		SmartDashboard.putNumber("Right arm position: ", rightArm.getSelectedSensorPosition(0) / 4096);
+		SmartDashboard.putNumber("Scissor lift position: ", Math.abs(scissorLift.getSelectedSensorPosition(0) / 4096));
+		SmartDashboard.putNumber("Right arm position: ", Math.abs(rightArm.getSelectedSensorPosition(0) / 4096));
 
 		// tank drive
 		// driveTrain.tankDrive(driver.getRawAxis(1), driver.getRawAxis(5));
@@ -138,20 +150,51 @@ public class Robot extends IterativeRobot {
 			intake.set(0); // stop motor
 		}
 
-		// intake arm
-		if (operator.getXButton()) {
-			leftArm.set(0.3);
-			rightArm.set(ControlMode.Velocity, 0.3);
-		} else if (operator.getYButton()) {
+		// intake arm left trigger in right trigger out
+		if (operator.getRawButton(5)) {
+			if (Math.abs((Math.abs(rightArm.getSelectedSensorPosition(0)) - armPos)) / 4096 <= 1) {
+				leftArm.set(0.3);
+				rightArm.set(ControlMode.PercentOutput, 0.3);
+			}
+			while (Math.abs((Math.abs(rightArm.getSelectedSensorPosition(0)) - armPos)) / 4096 <= 1) {
+				System.out.println("Arm in");
+			}
+			leftArm.set(0);
+			rightArm.set(ControlMode.PercentOutput, 0);
+		} else if (operator.getRawButton(6)) {
+			if (Math.abs((rightArm.getSelectedSensorPosition(0)) - armPos) >= 0) {
+				rightArm.set(ControlMode.PercentOutput, -0.3);
+			}
+			while ((Math.abs(rightArm.getSelectedSensorPosition(0)) - armPos) >= 0) {
+				System.out.println("Arm Out");
+			}
 			leftArm.set(-0.3);
-			rightArm.set(ControlMode.Velocity, -0.3);
+			rightArm.set(ControlMode.PercentOutput, -0.3);
 		} else {
 			leftArm.set(0);
-			rightArm.set(ControlMode.Velocity, 0);
+			rightArm.set(ControlMode.PercentOutput, 0);
 		}
 
-		// scissor lift right operator stick y
-		scissorLift.set(ControlMode.Velocity, operator.getRawAxis(5) * 0.5);
+		// scissor lift right operator y up x down
+		if (operator.getYButton()) {
+			if (Math.abs((Math.abs(scissorLift.getSelectedSensorPosition(0)) - scissorPos)) / 4096 <= 5) {
+				scissorLift.set(ControlMode.PercentOutput, 0.3);
+			}
+			while ((Math.abs(scissorLift.getSelectedSensorPosition(0)) - scissorPos) / 4096 <= 5) {
+				System.out.println("Going up");
+			}
+			scissorLift.set(ControlMode.Velocity, 0);
+		}
+		if (operator.getXButton()) {
+			System.out.println("X");
+			if ((Math.abs(scissorLift.getSelectedSensorPosition(0)) - scissorPos) >= 0) {
+				scissorLift.set(ControlMode.PercentOutput, -0.3);
+			}
+			while ((Math.abs(scissorLift.getSelectedSensorPosition(0)) - scissorPos) >= 0) {
+				System.out.println("Going down");
+			}
+			scissorLift.set(ControlMode.Velocity, 0);
+		}
 	}
 
 }
