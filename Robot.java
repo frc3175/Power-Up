@@ -35,12 +35,11 @@ public class Robot extends IterativeRobot {
 	// Joystick
 	private Joystick driver = new Joystick(0);
 	public XboxController operator = new XboxController(1);
-	public XboxController driverController = new XboxController(0);
 
 	// Drive train
 	private Victor leftDrive = new Victor(0);
 	private Victor rightDrive = new Victor(1);
-	private DifferentialDrive driveTrain;
+	private DifferentialDrive driveTrain = new DifferentialDrive(leftDrive, rightDrive);
 
 	// winch
 	private Victor winch = new Victor(2);
@@ -50,9 +49,6 @@ public class Robot extends IterativeRobot {
 
 	// left gripping arm
 	private Victor leftArm = new Victor(4);
-
-	// temporary thingy
-	private Victor VscissorLift = new Victor(6);
 
 	// Victor scissor lift
 	private TalonSRX scissorLift = new TalonSRX(5);
@@ -66,7 +62,6 @@ public class Robot extends IterativeRobot {
 	@Override
 	public void robotInit() {
 		CameraServer.getInstance().startAutomaticCapture();
-		driveTrain = new DifferentialDrive(leftDrive, rightDrive);
 		scissorLift.configSelectedFeedbackSensor(com.ctre.phoenix.motorcontrol.FeedbackDevice.CTRE_MagEncoder_Relative,
 				0, 0);
 		rightArm.configSelectedFeedbackSensor(com.ctre.phoenix.motorcontrol.FeedbackDevice.CTRE_MagEncoder_Relative, 0,
@@ -143,6 +138,24 @@ public class Robot extends IterativeRobot {
 		} else {
 			turnSpeed = 0;
 		}
+		// Gears of the drive train left joystick
+		driveTrain.arcadeDrive(driver.getRawAxis(1), turnSpeed);
+		//When A is held the the driveTrain goes 80% 
+		while (driverController.getAButton()) { //Listens for A button
+			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.8, turnSpeed * 0.8); 
+			//While A button is held it executes the normal code at 80%
+		}
+		//When B is held the driveTrain goes 60%
+		while (driverController.getBButton()) {
+			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.6, turnSpeed * 0.6);
+			//While B button is held it executes the normal code at 60%
+		}
+		//When Y is held the driveTrain goes 40%
+		while (driverController.getYButton()) {
+			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.4, turnSpeed * 0.4);
+			//While Y button is held it executes the normal code at 40%
+		}	
+		
 		// Operator Stick Intakes
 		if (operator.getAButton()) {
 			intake.set(1); // A spit out
@@ -151,7 +164,8 @@ public class Robot extends IterativeRobot {
 		} else {
 			intake.set(0); // stop motor
 		}
-		// Winch thing
+		
+		// Winch with start and back buttons
 		if (operator.getStartButton()) {
 			winch.set(0.5);
 		} else if (operator.getBackButton()) {
@@ -159,28 +173,6 @@ public class Robot extends IterativeRobot {
 		} else {
 			winch.set(0);
 		}
-		// Hi Tony
-		
-		
-		
-		// Gears of the drive train (I also changed the Joystick to be on the left side for Nate since he is left handed)
-		driveTrain.arcadeDrive(driver.getRawAxis(1), turnSpeed);
-		//When A is held the the driveTrain goes 80% 
-		while (driverController.getAButton()) { //Listens for A button
-			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.8, turnSpeed); //While A button is held it executes the normal code at 80%
-		}
-		//When B is held the driveTrain goes 60%
-		while (driverController.getBButton()) {
-			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.6, turnSpeed);//While B button is held it executes the normal code at 60%
-		}
-		//When Y is held the driveTrain goes 40%
-		while (driverController.getYButton()) {
-			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.4, turnSpeed);//While Y button is held it executes the normal code at 40%
-		}
-	}
-	{
-		// scissorlift with the victor (TEMPORARY) supposed to be the leftArm
-		VscissorLift.set(operator.getRawAxis(5) * 0.3);
 
 		// intake arm left trigger in right trigger out
 		if (operator.getRawButton(5)) {
@@ -206,7 +198,7 @@ public class Robot extends IterativeRobot {
 			leftArm.set(0);
 			rightArm.set(ControlMode.PercentOutput, 0);
 		}
-		// do u no de wey
+
 		// scissor lift right operator y up x down
 		if (operator.getYButton()) {
 			if (Math.abs((Math.abs(scissorLift.getSelectedSensorPosition(0)) - scissorPos)) / 4096 <= 5) {
