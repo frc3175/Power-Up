@@ -7,9 +7,15 @@
 
 package org.usfirst.frc.team3175.robot;
 
+import org.opencv.core.KeyPoint;
+import org.opencv.core.MatOfPoint;
+import org.opencv.core.MatOfPoint2f;
+import org.opencv.core.Point;
+import org.opencv.core.Rect;
+import org.opencv.imgproc.Imgproc;
+import edu.wpi.cscore.UsbCamera;
 import edu.wpi.first.wpilibj.ADXRS450_Gyro;
 import edu.wpi.first.wpilibj.CameraServer;
-import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.IterativeRobot;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.Timer;
@@ -18,6 +24,7 @@ import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import edu.wpi.first.wpilibj.interfaces.Gyro;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj.vision.VisionThread;
 import com.ctre.phoenix.motorcontrol.ControlMode;
 import com.ctre.phoenix.motorcontrol.can.TalonSRX;
 
@@ -29,14 +36,10 @@ public class Robot extends IterativeRobot {
 
 	private Timer runTime = new Timer();
 
-	private static int scissorPos;
-	private static int armPos;
-
 	// Joystick
 	private Joystick driver = new Joystick(0);
 	public XboxController operator = new XboxController(1);
 	public XboxController driverController = new XboxController(0);
-
 	// Drive train
 	private Victor leftDrive = new Victor(0);
 	private Victor rightDrive = new Victor(1);
@@ -51,26 +54,62 @@ public class Robot extends IterativeRobot {
 	// left gripping arm
 	private Victor leftArm = new Victor(4);
 
-	// temporary thingy
-	private Victor VscissorLift = new Victor(6);
-
 	// Victor scissor lift
 	private TalonSRX scissorLift = new TalonSRX(5);
 
 	// right gripping arm
 	private TalonSRX rightArm = new TalonSRX(6);
 
+	private Victor testScissor = new Victor(7);
+
+	// encoder counters
+	private static int scissorPos;
+	private static int armPos;
+
 	// Gyroscope
 	private Gyro gyro = new ADXRS450_Gyro();
 
+	private static final int IMG_WIDTH = 320;
+	private static final int IMG_HEIGHT = 240;
+
+	private VisionThread visionThread;
+	private double centerX = 0.0;
+
+	private final Object imgLock = new Object();
+
 	@Override
 	public void robotInit() {
-		CameraServer.getInstance().startAutomaticCapture();
 		driveTrain = new DifferentialDrive(leftDrive, rightDrive);
 		scissorLift.configSelectedFeedbackSensor(com.ctre.phoenix.motorcontrol.FeedbackDevice.CTRE_MagEncoder_Relative,
 				0, 0);
 		rightArm.configSelectedFeedbackSensor(com.ctre.phoenix.motorcontrol.FeedbackDevice.CTRE_MagEncoder_Relative, 0,
 				0);
+		UsbCamera camera = CameraServer.getInstance().startAutomaticCapture();
+		camera.setResolution(IMG_WIDTH, IMG_HEIGHT);
+		visionThread = new VisionThread(camera, new findBlock(), pipeline -> {
+			if (!pipeline.findBlobsOutput().empty()) {
+				KeyPoint[] refKp = pipeline.findBlobsOutput().toArray();
+				Point[] refPts = new Point[2];
+				for (int i = 0; i < 2; i++) {
+					refPts[i] = refKp[i].pt;
+				}
+				MatOfPoint2f refMatPt = new MatOfPoint2f(refPts);
+				MatOfPoint2f approxCurve = new MatOfPoint2f();
+
+				// Processing on mMOP2f1 which is in type MatOfPoint2f
+				double approxDistance = Imgproc.arcLength(refMatPt, true) * 0.02;
+				Imgproc.approxPolyDP(refMatPt, approxCurve, approxDistance, true);
+
+				// Convert back to MatOfPoint
+				MatOfPoint points = new MatOfPoint(approxCurve.toArray());
+				// Get bounding rect
+				Rect r = Imgproc.boundingRect(points);
+				synchronized (imgLock) {
+					centerX = r.x + (r.width / 2);
+				}
+			}
+		});
+		visionThread.start();
 		runTime.reset();
 	}
 
@@ -143,6 +182,26 @@ public class Robot extends IterativeRobot {
 		} else {
 			turnSpeed = 0;
 		}
+		driveTrain.arcadeDrive(driver.getRawAxis(1), turnSpeed);
+
+		// Gears of the drive train left joystick
+		driveTrain.arcadeDrive(driver.getRawAxis(1), turnSpeed);
+		// When A is held the the driveTrain goes 80%
+		while (driverController.getAButton()) { // Listens for A button
+			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.8, turnSpeed * 0.8);
+			// While A button is held it executes the normal code at 80%
+		}
+		// When B is held the driveTrain goes 60%
+		while (driverController.getBButton()) {
+			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.6, turnSpeed * 0.6);
+			// While B button is held it executes the normal code at 60%
+		}
+		// When Y is held the driveTrain goes 40%
+		while (driverController.getYButton()) {
+			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.4, turnSpeed * 0.4);
+			// While Y button is held it executes the normal code at 40%
+		}
+
 		// Operator Stick Intakes
 		if (operator.getAButton()) {
 			intake.set(1); // A spit out
@@ -151,7 +210,7 @@ public class Robot extends IterativeRobot {
 		} else {
 			intake.set(0); // stop motor
 		}
-		// Winch thing
+		// Winch with start and back buttons
 		if (operator.getStartButton()) {
 			winch.set(0.5);
 		} else if (operator.getBackButton()) {
@@ -159,29 +218,6 @@ public class Robot extends IterativeRobot {
 		} else {
 			winch.set(0);
 		}
-		// Hi Tony
-		
-		
-		
-		// Gears of the drive train (I also changed the Joystick to be on the left side for Nate since he is left handed)
-		driveTrain.arcadeDrive(driver.getRawAxis(1), turnSpeed);
-		//When A is held the the driveTrain goes 80% 
-		while (driverController.getAButton()) { //Listens for A button
-			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.8, turnSpeed); //While A button is held it executes the normal code at 80%
-		}
-		//When B is held the driveTrain goes 60%
-		while (driverController.getBButton()) {
-			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.6, turnSpeed);//While B button is held it executes the normal code at 60%
-		}
-		//When Y is held the driveTrain goes 40%
-		while (driverController.getYButton()) {
-			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.4, turnSpeed);//While Y button is held it executes the normal code at 40%
-		}
-	}
-	{
-		// scissorlift with the victor (TEMPORARY) supposed to be the leftArm
-		VscissorLift.set(operator.getRawAxis(5) * 0.3);
-
 		// intake arm left trigger in right trigger out
 		if (operator.getRawButton(5)) {
 			if (Math.abs((Math.abs(rightArm.getSelectedSensorPosition(0)) - armPos)) / 4096 <= 1) {
@@ -206,7 +242,7 @@ public class Robot extends IterativeRobot {
 			leftArm.set(0);
 			rightArm.set(ControlMode.PercentOutput, 0);
 		}
-		// do u no de wey
+
 		// scissor lift right operator y up x down
 		if (operator.getYButton()) {
 			if (Math.abs((Math.abs(scissorLift.getSelectedSensorPosition(0)) - scissorPos)) / 4096 <= 5) {
@@ -227,6 +263,14 @@ public class Robot extends IterativeRobot {
 			}
 			scissorLift.set(ControlMode.Velocity, 0);
 		}
+
+		testScissor.set(operator.getRawAxis(5));
+
+		double centerX;
+		synchronized (imgLock) {
+			centerX = this.centerX;
+		}
+		System.out.println(centerX);
 	}
 
 }
