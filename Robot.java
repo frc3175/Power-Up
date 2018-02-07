@@ -52,13 +52,13 @@ public class Robot extends IterativeRobot {
 	private Victor intake = new Victor(3);
 
 	// left gripping arm
-	private Victor leftArm = new Victor(4);
+	private Victor rightArm = new Victor(4);
 
 	// Victor scissor lift
 	private TalonSRX scissorLift = new TalonSRX(5);
 
 	// right gripping arm
-	private TalonSRX rightArm = new TalonSRX(6);
+	private TalonSRX leftArm = new TalonSRX(6);
 
 	private Victor testScissor = new Victor(7);
 
@@ -79,11 +79,15 @@ public class Robot extends IterativeRobot {
 
 	@Override
 	public void robotInit() {
+		gyro.calibrate();
+		Timer.delay(5);
+		gyro.reset();
 		driveTrain = new DifferentialDrive(leftDrive, rightDrive);
 		scissorLift.configSelectedFeedbackSensor(com.ctre.phoenix.motorcontrol.FeedbackDevice.CTRE_MagEncoder_Relative,
 				0, 0);
-		rightArm.configSelectedFeedbackSensor(com.ctre.phoenix.motorcontrol.FeedbackDevice.CTRE_MagEncoder_Relative, 0,
+		leftArm.configSelectedFeedbackSensor(com.ctre.phoenix.motorcontrol.FeedbackDevice.CTRE_MagEncoder_Relative, 0,
 				0);
+		leftArm.setSelectedSensorPosition(0, 0, 10);
 		UsbCamera camera = CameraServer.getInstance().startAutomaticCapture();
 		camera.setResolution(IMG_WIDTH, IMG_HEIGHT);
 		visionThread = new VisionThread(camera, new findBlock(), pipeline -> {
@@ -119,7 +123,8 @@ public class Robot extends IterativeRobot {
 	@Override
 	public void autonomousInit() {
 		gyro.calibrate();
-		Timer.delay(0.05);
+		Timer.delay(5);
+		gyro.reset();
 		runTime.reset();
 		runTime.start();
 	}
@@ -159,23 +164,26 @@ public class Robot extends IterativeRobot {
 	@Override
 	public void teleopInit() {
 		scissorPos = Math.abs(scissorLift.getSelectedSensorPosition(0));
-		armPos = Math.abs(rightArm.getSelectedSensorPosition(0));
+		armPos = Math.abs(leftArm.getSelectedSensorPosition(0));
 	}
 
 	@Override
 	public void teleopPeriodic() {
+		leftArm.setSelectedSensorPosition(0, 0, 10);
+
 		// test gyro
 		SmartDashboard.putNumber("Gyro", gyro.getAngle());
 		// System.out.println("Here's your angle: " + gyro.getAngle());
 
 		// test encoder
-		SmartDashboard.putNumber("Scissor lift position: ", Math.abs(scissorLift.getSelectedSensorPosition(0) / 4096));
-		SmartDashboard.putNumber("Right arm position: ", Math.abs(rightArm.getSelectedSensorPosition(0) / 4096));
+		SmartDashboard.putNumber("Scissor lift position: ",
+				Math.abs(scissorLift.getSelectedSensorPosition(0) / 4096.0));
+		SmartDashboard.putNumber("Left Arm position: ", Math.abs(leftArm.getSelectedSensorPosition(0) / 4096.0));
 
 		// tank drive
 		// driveTrain.tankDrive(driver.getRawAxis(1), driver.getRawAxis(5));
 
-		// arcade drive
+		// arcade drive;
 		double turnSpeed;
 		if (driver.getRawAxis(4) > 0.3 || driver.getRawAxis(4) < -0.3) {
 			turnSpeed = -driver.getRawAxis(4) * 0.8;
@@ -193,37 +201,43 @@ public class Robot extends IterativeRobot {
 			intake.set(0); // stop motor
 		}
 
-		// intake arm left trigger in right trigger out
-		if (operator.getRawButton(5)) {
-			if (Math.abs((Math.abs(rightArm.getSelectedSensorPosition(0)) - armPos)) / 4096 <= 1) {
-				leftArm.set(0.3);
-				rightArm.set(ControlMode.PercentOutput, 0.3);
+		// intake arm x grabs y releases
+		if (operator.getXButton()) {
+			if (Math.abs((Math.abs(leftArm.getSelectedSensorPosition(0)) - armPos)) / 4096.0 <= 0.3) {
+				rightArm.set(-0.3);
+				leftArm.set(ControlMode.PercentOutput, 0.3);
 			}
-			while (Math.abs((Math.abs(rightArm.getSelectedSensorPosition(0)) - armPos)) / 4096 <= 1) {
+			double timeOut = runTime.get();
+			while (Math.abs((Math.abs(leftArm.getSelectedSensorPosition(0)) - armPos)) / 4096.0 <= 0.3
+					&& (runTime.get() - timeOut) < 0.3) {
 				System.out.println("Arm in");
 			}
-			leftArm.set(0);
-			rightArm.set(ControlMode.PercentOutput, 0);
-		} else if (operator.getRawButton(6)) {
-			if (Math.abs((rightArm.getSelectedSensorPosition(0)) - armPos) >= 0) {
-				rightArm.set(ControlMode.PercentOutput, -0.3);
+			rightArm.set(0);
+			leftArm.set(ControlMode.PercentOutput, 0);
+		} else if (operator.getYButton()) {
+			if (Math.abs((leftArm.getSelectedSensorPosition(0)) - armPos) >= 0) {
+				leftArm.set(ControlMode.PercentOutput, 0.3);
+				rightArm.set(-0.3);
 			}
-			while ((Math.abs(rightArm.getSelectedSensorPosition(0)) - armPos) >= 0) {
+			double timeOut = runTime.get();
+			while ((Math.abs(leftArm.getSelectedSensorPosition(0)) - armPos) >= 0 && (runTime.get() - timeOut) < 0.3) {
 				System.out.println("Arm Out");
 			}
-			leftArm.set(-0.3);
-			rightArm.set(ControlMode.PercentOutput, -0.3);
+			rightArm.set(0);
+			leftArm.set(ControlMode.PercentOutput, 0);
 		} else {
-			leftArm.set(0);
-			rightArm.set(ControlMode.PercentOutput, 0);
+			rightArm.set(0);
+			leftArm.set(ControlMode.PercentOutput, 0);
 		}
 
 		// scissor lift right operator y up x down
 		if (operator.getYButton()) {
-			if (Math.abs((Math.abs(scissorLift.getSelectedSensorPosition(0)) - scissorPos)) / 4096 <= 5) {
+			if (Math.abs((Math.abs(scissorLift.getSelectedSensorPosition(0)) - scissorPos)) / 4096.0 <= 5) {
 				scissorLift.set(ControlMode.PercentOutput, 0.3);
 			}
-			while ((Math.abs(scissorLift.getSelectedSensorPosition(0)) - scissorPos) / 4096 <= 5) {
+			double timeOut = runTime.get();
+			while ((Math.abs(scissorLift.getSelectedSensorPosition(0)) - scissorPos) / 4096.0 <= 5
+					&& (runTime.get() - timeOut) < 5) {
 				System.out.println("Going up");
 			}
 			scissorLift.set(ControlMode.Velocity, 0);
@@ -233,7 +247,9 @@ public class Robot extends IterativeRobot {
 			if ((Math.abs(scissorLift.getSelectedSensorPosition(0)) - scissorPos) >= 0) {
 				scissorLift.set(ControlMode.PercentOutput, -0.3);
 			}
-			while ((Math.abs(scissorLift.getSelectedSensorPosition(0)) - scissorPos) >= 0) {
+			double timeOut = runTime.get();
+			while ((Math.abs(scissorLift.getSelectedSensorPosition(0)) - scissorPos) >= 0
+					&& (runTime.get() - timeOut) < 5) {
 				System.out.println("Going down");
 			}
 			scissorLift.set(ControlMode.Velocity, 0);
@@ -245,7 +261,18 @@ public class Robot extends IterativeRobot {
 		synchronized (imgLock) {
 			centerX = this.centerX;
 		}
-		System.out.println(centerX);
+		SmartDashboard.putNumber("Center X", centerX);
+
+		// if (operator.getXButton()) {
+		// leftArm.set(ControlMode.PercentOutput, -0.5);
+		// rightArm.set(0.5);
+		// } else if (operator.getYButton()) {
+		// leftArm.set(ControlMode.PercentOutput, 0.3);
+		// rightArm.set(-0.3);
+		// } else {
+		// leftArm.set(ControlMode.PercentOutput, 0);
+		// rightArm.set(0);
+		// }
 	}
 
 }
