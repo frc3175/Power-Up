@@ -16,10 +16,12 @@ import org.opencv.imgproc.Imgproc;
 import edu.wpi.cscore.UsbCamera;
 import edu.wpi.first.wpilibj.ADXRS450_Gyro;
 import edu.wpi.first.wpilibj.CameraServer;
+import edu.wpi.first.wpilibj.Compressor;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.IterativeRobot;
 import edu.wpi.first.wpilibj.Joystick;
+import edu.wpi.first.wpilibj.Solenoid;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.Victor;
 import edu.wpi.first.wpilibj.XboxController;
@@ -44,9 +46,10 @@ public class Robot extends IterativeRobot {
 	/** SET THIS BEFORE MATCH! **/
 	public String goal = "switch"; // TODO: Get DS input?
 
-	private Timer runTime = new Timer();
+	// arcade drive speeds
+	private static int gear = 1;
 
-	private double currentTime;
+	private Timer runTime = new Timer();
 
 	// Joystick
 	private Joystick driver;
@@ -57,22 +60,18 @@ public class Robot extends IterativeRobot {
 	private Victor rightDrive;
 	private DifferentialDrive driveTrain;
 
-	// winch
+	// lift system
 	private Victor winch;
+	private TalonSRX leftScissor;
+	private Victor rightScissor;
 
-	// Victor intakes
+	// manipulators
 	private Victor intake;
 
-	// left gripping arm
-	private Victor rightArm;
-
-	// Victor scissor lift
-	private TalonSRX leftScissor;
-
-	// right gripping arm
-	private TalonSRX leftArm;
-
-	private Victor rightScissor;
+	// pneumatics
+	private Solenoid arm;
+	private Solenoid deploy;
+	private Compressor compressor;
 
 	// Gyroscope
 	private Gyro gyro;
@@ -104,19 +103,23 @@ public class Robot extends IterativeRobot {
 		rightDrive = new Victor(1);
 		winch = new Victor(2);
 		intake = new Victor(3);
-		rightArm = new Victor(4);
+		rightScissor = new Victor(4);
 		leftScissor = new TalonSRX(5);
-		leftArm = new TalonSRX(6);
-		rightScissor = new Victor(7);
+		arm = new Solenoid(0);
+		deploy = new Solenoid(1);
+		compressor = new Compressor(0);
 		gyro = new ADXRS450_Gyro();
+
+		compressor.setClosedLoopControl(true);
+
+		gyro.calibrate();
+		Timer.delay(5);
+		gyro.reset();
 
 		driveTrain = new DifferentialDrive(leftDrive, rightDrive);
 
 		leftScissor.configSelectedFeedbackSensor(com.ctre.phoenix.motorcontrol.FeedbackDevice.CTRE_MagEncoder_Relative,
 				0, 0);
-		leftArm.configSelectedFeedbackSensor(com.ctre.phoenix.motorcontrol.FeedbackDevice.CTRE_MagEncoder_Relative, 0,
-				0);
-		leftArm.setSelectedSensorPosition(0, 0, 10);
 
 		UsbCamera camera = CameraServer.getInstance().startAutomaticCapture();
 		camera.setResolution(IMG_WIDTH, IMG_HEIGHT);
@@ -161,11 +164,9 @@ public class Robot extends IterativeRobot {
 	public void autonomousInit() {
 		SmartDashboard.putString("Auton Init", "Initializing...");
 
-		leftArm.setSelectedSensorPosition(0, 0, 10);
 		leftScissor.setSelectedSensorPosition(0, 0, 10);
 		field = DriverStation.getInstance().getGameSpecificMessage();
-		gyro.calibrate();
-		Timer.delay(5);
+
 		gyro.reset();
 		runTime.reset();
 		runTime.start();
@@ -179,6 +180,8 @@ public class Robot extends IterativeRobot {
 	@Override
 	public void autonomousPeriodic() {
 		// driveTrain.arcadeDrive(0.4, 0);
+
+		deploy.set(true);
 		switch (station) {
 		case 1:
 			if (field.charAt(0) == 'L' && goal == "switch") {
@@ -214,10 +217,7 @@ public class Robot extends IterativeRobot {
 	public void teleopInit() {
 		SmartDashboard.putString("Teleop Init", "Initializing...");
 
-		gyro.calibrate();
-		Timer.delay(5);
 		gyro.reset();
-		leftArm.setSelectedSensorPosition(0, 0, 10);
 		leftScissor.setSelectedSensorPosition(0, 0, 10);
 
 		SmartDashboard.putString("Teleop Init", "Initialized!");
@@ -229,32 +229,15 @@ public class Robot extends IterativeRobot {
 	@Override
 	public void teleopPeriodic() {
 
-		// gyro reading
-		SmartDashboard.putNumber("Gyro", gyro.getAngle());
+		telemetry();
 
-		// encoder readings
-		SmartDashboard.putNumber("Scissor lift position: ",
-				Math.abs(leftScissor.getSelectedSensorPosition(0) / 4096.0));
-		SmartDashboard.putNumber("Left Arm position: ", Math.abs(leftArm.getSelectedSensorPosition(0) / 4096.0));
+		arcadeDrive();
 
-		// arcade drive;
-		double turnSpeed;
-		if (driver.getRawAxis(4) > 0.3 || driver.getRawAxis(4) < -0.3) {
-			turnSpeed = -driver.getRawAxis(4);
-		} else {
-			turnSpeed = 0;
-		}
-		if (driver.getRawButton(4)) {
-			// y 40% speed
-			driveTrain.arcadeDrive(driver.getRawAxis(5) * 0.4, turnSpeed * 0.4);
-		} else if (driver.getRawButton(3)) {
-			// b 60% speed
-			driveTrain.arcadeDrive(driver.getRawAxis(5) * 0.6, turnSpeed * 0.6);
-		} else if (driver.getRawButton(2)) {
-			// a 80% speed
-			driveTrain.arcadeDrive(driver.getRawAxis(5) * 0.8, turnSpeed * 0.8);
-		} else {
-			driveTrain.arcadeDrive(driver.getRawAxis(5), turnSpeed);
+		// operator x closes up y opens
+		if (operator.getXButton()) {
+			arm.set(false);
+		} else if (operator.getYButton()) {
+			arm.set(true);
 		}
 
 		// Operator Stick Intakes
@@ -275,34 +258,6 @@ public class Robot extends IterativeRobot {
 			winch.set(0);
 		}
 
-		// intake arm x grabs y releases
-		if (operator.getXButton()) {
-			if (Math.abs(leftArm.getSelectedSensorPosition(0)) / 4096.0 <= 0.3) {
-				rightArm.set(-0.3);
-				leftArm.set(ControlMode.PercentOutput, 0.3);
-			}
-			double timeOut = runTime.get();
-			while (Math.abs(leftArm.getSelectedSensorPosition(0)) / 4096.0 <= 0.3 && (runTime.get() - timeOut) < 0.5) {
-				System.out.println("Arm in");
-			}
-			rightArm.set(0);
-			leftArm.set(ControlMode.PercentOutput, 0);
-		} else if (operator.getYButton()) {
-			if (Math.abs(leftArm.getSelectedSensorPosition(0)) >= 0) {
-				rightArm.set(-0.3);
-				leftArm.set(ControlMode.PercentOutput, 0.3);
-			}
-			double timeOut = runTime.get();
-			while (Math.abs(leftArm.getSelectedSensorPosition(0)) >= 0 && (runTime.get() - timeOut) < 0.5) {
-				System.out.println("Arm Out");
-			}
-			rightArm.set(0);
-			leftArm.set(ControlMode.PercentOutput, 0);
-		} else {
-			rightArm.set(0);
-			leftArm.set(ControlMode.PercentOutput, 0);
-		}
-
 		// scissor lift right joystick y override
 		leftScissor.set(ControlMode.PercentOutput, operator.getRawAxis(5));
 		rightScissor.set(operator.getRawAxis(5));
@@ -312,79 +267,13 @@ public class Robot extends IterativeRobot {
 		 * switch level POV 180: scale (highest 6ft) POV 270: climb
 		 */
 		if (operator.getPOV() == 0) {
-			if (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 > 0) {
-				// go down when it is higher than the lowest level
-				leftScissor.set(ControlMode.PercentOutput, -0.5);
-				rightScissor.set(-0.5);
-				double timeOut = runTime.get();
-				while (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 > 0
-						&& (runTime.get() - timeOut) < 5) {
-					SmartDashboard.putString("Going down", "Ground Level");
-				}
-				leftScissor.set(ControlMode.Velocity, 0);
-				rightScissor.set(0);
-			}
+			groundLevel();
 		} else if (operator.getPOV() == 90) {
-			if (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 < SWITCH) {
-				// go up when it is lower than switch level
-				leftScissor.set(ControlMode.PercentOutput, 0.5);
-				rightScissor.set(0.5);
-				double timeOut = runTime.get();
-				while (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 <= SWITCH
-						&& (runTime.get() - timeOut) < 5) {
-					SmartDashboard.putString("Going up", "Switch");
-				}
-				leftScissor.set(ControlMode.Velocity, 0);
-				rightScissor.set(0);
-			} else if (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 > SWITCH) {
-				// go down when it is higher than switch level
-				leftScissor.set(ControlMode.PercentOutput, -0.5);
-				rightScissor.set(-0.5);
-				double timeOut = runTime.get();
-				while (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 > SWITCH
-						&& (runTime.get() - timeOut) < 5) {
-					SmartDashboard.putString("Going down", "Switch");
-				}
-				leftScissor.set(ControlMode.Velocity, 0);
-				rightScissor.set(0);
-			}
+			switchLevel();
 		} else if (operator.getPOV() == 180) {
-			if (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 < SCALE) {
-				// go up when it is lower than the scale level
-				leftScissor.set(ControlMode.PercentOutput, 0.5);
-				rightScissor.set(0.5);
-				double timeOut = runTime.get();
-				while (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 <= SCALE
-						&& (runTime.get() - timeOut) < 5) {
-					SmartDashboard.putString("Going up", "Scale");
-				}
-				leftScissor.set(ControlMode.Velocity, 0);
-				rightScissor.set(0);
-			} else if (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 > SCALE) {
-				// go down when it is higher than the scale level
-				leftScissor.set(ControlMode.PercentOutput, -0.5);
-				rightScissor.set(-0.5);
-				double timeOut = runTime.get();
-				while (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 > SCALE
-						&& (runTime.get() - timeOut) < 5) {
-					SmartDashboard.putString("Going down", "Scale");
-				}
-				leftScissor.set(ControlMode.Velocity, 0);
-				rightScissor.set(0);
-			}
+			scaleLevel();
 		} else if (operator.getPOV() == 270) {
-			if (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 < CLIMB) {
-				// go up when it is lower than switch level
-				leftScissor.set(ControlMode.PercentOutput, 0.5);
-				rightScissor.set(0.5);
-				double timeOut = runTime.get();
-				while (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 <= CLIMB
-						&& (runTime.get() - timeOut) < 5) {
-					SmartDashboard.putString("Going up", "Climb");
-				}
-				leftScissor.set(ControlMode.Velocity, 0);
-				rightScissor.set(0);
-			}
+			climbLevel();
 		}
 
 		// test vision
@@ -393,8 +282,160 @@ public class Robot extends IterativeRobot {
 			centerX = this.centerX;
 		}
 		SmartDashboard.putNumber("Center X", centerX);
+	}
 
-		System.out.println(runTime.get());
+	/*
+	 * Sends robot data to the SmartDashboard
+	 */
+	private void telemetry() {
+		// gyro reading
+		SmartDashboard.putNumber("Gyro", gyro.getAngle());
+
+		// encoder readings
+		SmartDashboard.putNumber("Scissor lift position: ",
+				Math.abs(leftScissor.getSelectedSensorPosition(0) / 4096.0));
+
+		// pneumatics
+		SmartDashboard.putBoolean("Compressor enabled", compressor.enabled());
+		SmartDashboard.putBoolean("Pressure Switch On", compressor.getPressureSwitchValue());
+
+		// drive train
+		SmartDashboard.putString("Gear", Integer.toString(gear));
+
+		// runtime
+		SmartDashboard.putString("Run time", Double.toString(runTime.get()));
+	}
+
+	/*
+	 * Programmable four speed arcade drive
+	 */
+	private void arcadeDrive() {
+		double turnSpeed;
+		if (driver.getRawAxis(4) > 0.3 || driver.getRawAxis(4) < -0.3) {
+			turnSpeed = -driver.getRawAxis(4);
+		} else {
+			turnSpeed = 0;
+		}
+		switch (gear) {
+		case 1:
+			// gear 1 40% speed
+			driveTrain.arcadeDrive(driver.getRawAxis(5) * 0.4, turnSpeed * 0.4);
+			break;
+		case 2:
+			// gear 2 60% speed
+			driveTrain.arcadeDrive(driver.getRawAxis(5) * 0.6, turnSpeed * 0.6);
+			break;
+		case 3:
+			// gear 3 80% speed
+			driveTrain.arcadeDrive(driver.getRawAxis(5) * 0.8, turnSpeed * 0.8);
+			break;
+		case 4:
+			// gear 4 100% speed
+			driveTrain.arcadeDrive(driver.getRawAxis(5), turnSpeed);
+			break;
+		}
+
+		// trigger buttons shift gears
+		if (driver.getRawButton(5) && gear > 1) {
+			// left gear down
+			gear--;
+		} else if (driver.getRawButton(6) && gear < 4) {
+			// right gear up
+			gear++;
+		}
+	}
+
+	/*
+	 * drives the scissor lift to the lowest position
+	 */
+	private void groundLevel() {
+		if (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 > 0) {
+			// go down when it is higher than the lowest level
+			leftScissor.set(ControlMode.PercentOutput, -0.5);
+			rightScissor.set(-0.5);
+			double timeOut = runTime.get();
+			while (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 > 0 && (runTime.get() - timeOut) < 5) {
+				SmartDashboard.putString("Going down", "Ground Level");
+			}
+			leftScissor.set(ControlMode.Velocity, 0);
+			rightScissor.set(0);
+		}
+	}
+
+	/*
+	 * drives the scissor lift to the switch level
+	 */
+	private void switchLevel() {
+		if (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 < SWITCH) {
+			// go up when it is lower than switch level
+			leftScissor.set(ControlMode.PercentOutput, 0.5);
+			rightScissor.set(0.5);
+			double timeOut = runTime.get();
+			while (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 <= SWITCH
+					&& (runTime.get() - timeOut) < 5) {
+				SmartDashboard.putString("Going up", "Switch");
+			}
+			leftScissor.set(ControlMode.Velocity, 0);
+			rightScissor.set(0);
+		} else if (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 > SWITCH) {
+			// go down when it is higher than switch level
+			leftScissor.set(ControlMode.PercentOutput, -0.5);
+			rightScissor.set(-0.5);
+			double timeOut = runTime.get();
+			while (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 > SWITCH
+					&& (runTime.get() - timeOut) < 5) {
+				SmartDashboard.putString("Going down", "Switch");
+			}
+			leftScissor.set(ControlMode.Velocity, 0);
+			rightScissor.set(0);
+		}
+	}
+
+	/*
+	 * drives the scissor lift to the scale level
+	 */
+	private void scaleLevel() {
+		if (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 < SCALE) {
+			// go up when it is lower than the scale level
+			leftScissor.set(ControlMode.PercentOutput, 0.5);
+			rightScissor.set(0.5);
+			double timeOut = runTime.get();
+			while (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 <= SCALE
+					&& (runTime.get() - timeOut) < 5) {
+				SmartDashboard.putString("Going up", "Scale");
+			}
+			leftScissor.set(ControlMode.Velocity, 0);
+			rightScissor.set(0);
+		} else if (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 > SCALE) {
+			// go down when it is higher than the scale level
+			leftScissor.set(ControlMode.PercentOutput, -0.5);
+			rightScissor.set(-0.5);
+			double timeOut = runTime.get();
+			while (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 > SCALE
+					&& (runTime.get() - timeOut) < 5) {
+				SmartDashboard.putString("Going down", "Scale");
+			}
+			leftScissor.set(ControlMode.Velocity, 0);
+			rightScissor.set(0);
+		}
+	}
+
+	/*
+	 * drives the scissor lift to the climber level
+	 */
+	private void climbLevel() {
+		if (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 < CLIMB) {
+			// go up when it is lower than switch level
+			leftScissor.set(ControlMode.PercentOutput, 0.5);
+			rightScissor.set(0.5);
+			double timeOut = runTime.get();
+			while (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 <= CLIMB
+					&& (runTime.get() - timeOut) < 5) {
+				SmartDashboard.putString("Going up", "Climb");
+			}
+			leftScissor.set(ControlMode.Velocity, 0);
+			rightScissor.set(0);
+		}
 	}
 
 }
