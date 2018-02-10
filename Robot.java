@@ -18,6 +18,7 @@ import edu.wpi.cscore.UsbCamera;
 import edu.wpi.first.wpilibj.ADXRS450_Gyro;
 import edu.wpi.first.wpilibj.CameraServer;
 import edu.wpi.first.wpilibj.Compressor;
+import edu.wpi.first.wpilibj.DoubleSolenoid;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.IterativeRobot;
@@ -56,7 +57,6 @@ public class Robot extends IterativeRobot {
 	private Joystick driver;
 	private XboxController operator;
 	public XboxController driverController;
-	
 
 	// Drive train
 	private Victor leftDrive;
@@ -72,7 +72,7 @@ public class Robot extends IterativeRobot {
 	private Victor intake;
 
 	// pneumatics
-	private Solenoid arm;
+	private DoubleSolenoid arm;
 	private Solenoid deploy;
 	private Compressor compressor;
 
@@ -91,7 +91,7 @@ public class Robot extends IterativeRobot {
 	private static final int IMG_HEIGHT = 240;
 	private VisionThread visionThread;
 	private double centerX = 0.0;
-	private final Object imgLock = new Object();
+	private final Object imgLock = new Object();	
 
 	/**
 	 * This function is run once each time the robot turns on.
@@ -109,7 +109,7 @@ public class Robot extends IterativeRobot {
 		intake = new Victor(3);
 		rightScissor = new Victor(4);
 		leftScissor = new TalonSRX(5);
-		arm = new Solenoid(0);
+		arm = new DoubleSolenoid(4, 5);
 		deploy = new Solenoid(1);
 		compressor = new Compressor(0);
 		gyro = new ADXRS450_Gyro();
@@ -239,9 +239,9 @@ public class Robot extends IterativeRobot {
 
 		// operator x closes up y opens
 		if (operator.getXButton()) {
-			arm.set(false);
+			arm.set(DoubleSolenoid.Value.kReverse);
 		} else if (operator.getYButton()) {
-			arm.set(true);
+			arm.set(DoubleSolenoid.Value.kForward);
 		}
 
 		// Operator Stick Intakes
@@ -267,8 +267,8 @@ public class Robot extends IterativeRobot {
 		rightScissor.set(operator.getRawAxis(5));
 
 		/*
-		 * Scissor lift on POV levels POV 0: loweest (pick up, vault running) POV 90:
-		 * switch level POV 180: scale (highest 6ft) POV 270: climb
+		 * Scissor lift on POV levels POV 0: loweest (pick up, vault running)
+		 * POV 90: switch level POV 180: scale (highest 6ft) POV 270: climb
 		 */
 		if (operator.getPOV() == 0) {
 			groundLevel();
@@ -305,9 +305,18 @@ public class Robot extends IterativeRobot {
 
 		// drive train
 		SmartDashboard.putString("Gear", Integer.toString(gear));
+		if (gear == 1) {
+			SmartDashboard.putString("Gear", "40% Speed");
+		} else if (gear == 2) {
+			SmartDashboard.putString("Gear", "60% Speed");
+		} else if (gear == 3) {
+			SmartDashboard.putString("Gear", "80% Speed");
+		} else if (gear == 0) {
+			SmartDashboard.putString("Gear", "100% Speed");
+		}
 
 		// runtime
-		SmartDashboard.putString("Run time", Double.toString(runTime.get()));
+		SmartDashboard.putString("Run Time", Double.toString(runTime.get()));
 	}
 
 	/*
@@ -323,19 +332,23 @@ public class Robot extends IterativeRobot {
 
 		// Gears of the drive train left joystick
 		driveTrain.arcadeDrive(driver.getRawAxis(1), turnSpeed);
+		gear = 0;
 		// When A is held the the driveTrain goes 80%
 		if (driverController.getAButton()) { // Listens for A button
 			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.8, turnSpeed * 0.8);
+			gear = 1;
 			// While A button is held it executes the normal code at 80%
 		}
 		// When B is held the driveTrain goes 60%
 		if (driverController.getBButton()) {
 			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.6, turnSpeed * 0.6);
+			gear = 2;
 			// While B button is held it executes the normal code at 60%
 		}
 		// When Y is held the driveTrain goes 40%
 		if (driverController.getYButton()) {
 			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.4, turnSpeed * 0.4);
+			gear = 3;
 			// While Y button is held it executes the normal code at 40%
 		}
 
