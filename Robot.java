@@ -1,3 +1,4 @@
+
 /*----------------------------------------------------------------------------*/
 /* Copyright (c) 2017-2018 FIRST. All Rights Reserved.                        */
 /* Open Source Software - may be modified and shared by FRC teams. The code   */
@@ -34,7 +35,7 @@ import com.ctre.phoenix.motorcontrol.can.TalonSRX;
 
 /**
  * This is a demo program showing the use of the RobotDrive class, specifically
- * it contains the code necessary to operate a robot with tank drive.
+ * it contains the code necessary to operate a robot with arcade drive.
  */
 public class Robot extends IterativeRobot {
 
@@ -54,6 +55,8 @@ public class Robot extends IterativeRobot {
 	// Joystick
 	private Joystick driver;
 	private XboxController operator;
+	public XboxController driverController;
+	
 
 	// Drive train
 	private Victor leftDrive;
@@ -99,6 +102,7 @@ public class Robot extends IterativeRobot {
 
 		driver = new Joystick(0);
 		operator = new XboxController(1);
+		driverController = new XboxController(0);
 		leftDrive = new Victor(0);
 		rightDrive = new Victor(1);
 		winch = new Victor(2);
@@ -113,7 +117,7 @@ public class Robot extends IterativeRobot {
 		compressor.setClosedLoopControl(true);
 
 		gyro.calibrate();
-		Timer.delay(5);
+		Timer.delay(0.05);
 		gyro.reset();
 
 		driveTrain = new DifferentialDrive(leftDrive, rightDrive);
@@ -311,28 +315,28 @@ public class Robot extends IterativeRobot {
 	 */
 	private void arcadeDrive() {
 		double turnSpeed;
-		if (driver.getRawAxis(4) > 0.3 || driver.getRawAxis(4) < -0.3) {
-			turnSpeed = -driver.getRawAxis(4);
+		if (driver.getRawAxis(0) > 0.3 || driver.getRawAxis(0) < -0.3) {
+			turnSpeed = -driver.getRawAxis(0);
 		} else {
 			turnSpeed = 0;
 		}
-		switch (gear) {
-		case 1:
-			// gear 1 40% speed
-			driveTrain.arcadeDrive(driver.getRawAxis(5) * 0.4, turnSpeed * 0.4);
-			break;
-		case 2:
-			// gear 2 60% speed
-			driveTrain.arcadeDrive(driver.getRawAxis(5) * 0.6, turnSpeed * 0.6);
-			break;
-		case 3:
-			// gear 3 80% speed
-			driveTrain.arcadeDrive(driver.getRawAxis(5) * 0.8, turnSpeed * 0.8);
-			break;
-		case 4:
-			// gear 4 100% speed
-			driveTrain.arcadeDrive(driver.getRawAxis(5), turnSpeed);
-			break;
+
+		// Gears of the drive train left joystick
+		driveTrain.arcadeDrive(driver.getRawAxis(1), turnSpeed);
+		// When A is held the the driveTrain goes 80%
+		if (driverController.getAButton()) { // Listens for A button
+			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.8, turnSpeed * 0.8);
+			// While A button is held it executes the normal code at 80%
+		}
+		// When B is held the driveTrain goes 60%
+		if (driverController.getBButton()) {
+			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.6, turnSpeed * 0.6);
+			// While B button is held it executes the normal code at 60%
+		}
+		// When Y is held the driveTrain goes 40%
+		if (driverController.getYButton()) {
+			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.4, turnSpeed * 0.4);
+			// While Y button is held it executes the normal code at 40%
 		}
 
 		// trigger buttons shift gears
