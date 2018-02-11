@@ -61,7 +61,7 @@ public class Robot extends IterativeRobot {
 	private Victor winch;
 	private TalonSRX leftScissor;
 
-		// manipulators
+	// manipulators
 	private Victor intake;
 	
 	// pneumatics
@@ -93,11 +93,13 @@ public class Robot extends IterativeRobot {
 		leftDrive = new Victor(0);
 		rightDrive = new Victor(1);
 		driveTrain = new DifferentialDrive(leftDrive, rightDrive);
+		intake = new Victor(3);
 
 		winch = new Victor(2);
 		leftScissor = new TalonSRX(5);
 		leftScissor.configSelectedFeedbackSensor(com.ctre.phoenix.motorcontrol.FeedbackDevice.CTRE_MagEncoder_Relative,
 				0, 0);
+		
 		/*
 		 * Configured forward and reverse limit switch of Talon to be from a feedback
 		 * connector and be normally open
@@ -342,6 +344,7 @@ public class Robot extends IterativeRobot {
 		} else if (operator.getYButton()) {
 			arm.set(DoubleSolenoid.Value.kForward);
 		}
+	
 		// Operator Stick Intakes
 		if (operator.getAButton()) {
 			intake.set(1); // A spit out
