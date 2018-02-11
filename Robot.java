@@ -7,13 +7,6 @@
 
 package org.usfirst.frc.team3175.robot;
 
-import org.opencv.core.KeyPoint;
-import org.opencv.core.MatOfPoint;
-import org.opencv.core.MatOfPoint2f;
-import org.opencv.core.Point;
-import org.opencv.core.Rect;
-import org.opencv.imgproc.Imgproc;
-import edu.wpi.cscore.UsbCamera;
 import edu.wpi.first.wpilibj.ADXRS450_Gyro;
 import edu.wpi.first.wpilibj.CameraServer;
 import edu.wpi.first.wpilibj.Compressor;
@@ -29,8 +22,6 @@ import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import edu.wpi.first.wpilibj.interfaces.Gyro;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import edu.wpi.first.wpilibj.vision.VisionThread;
-
 import com.ctre.phoenix.ParamEnum;
 import com.ctre.phoenix.motorcontrol.ControlMode;
 import com.ctre.phoenix.motorcontrol.LimitSwitchNormal;
@@ -49,7 +40,7 @@ public class Robot extends IterativeRobot {
 	private static double CLIMB = 4.0;
 
 	/** SET THIS BEFORE MATCH! **/
-	public String goal = "switch"; // TODO: Get DS input?
+	public String goal = "switch";
 
 	// arcade drive speeds
 	private static int gear = 1;
@@ -84,13 +75,6 @@ public class Robot extends IterativeRobot {
 	private static int station;
 	// locations of the alliance switch and scale
 	public String field;
-
-	// vission processing
-	private static final int IMG_WIDTH = 320;
-	private static final int IMG_HEIGHT = 240;
-	private VisionThread visionThread;
-	private double centerX = 0.0;
-	private final Object imgLock = new Object();
 
 	/**
 	 * This function is run once each time the robot turns on.
@@ -138,32 +122,7 @@ public class Robot extends IterativeRobot {
 		Timer.delay(5);
 		gyro.reset();
 
-		UsbCamera camera = CameraServer.getInstance().startAutomaticCapture();
-		camera.setResolution(IMG_WIDTH, IMG_HEIGHT);
-		visionThread = new VisionThread(camera, new findBlock(), pipeline -> {
-			if (!pipeline.findBlobsOutput().empty()) {
-				KeyPoint[] refKp = pipeline.findBlobsOutput().toArray();
-				Point[] refPts = new Point[2];
-				for (int i = 0; i < 2; i++) {
-					refPts[i] = refKp[i].pt;
-				}
-				MatOfPoint2f refMatPt = new MatOfPoint2f(refPts);
-				MatOfPoint2f approxCurve = new MatOfPoint2f();
-
-				// Processing on mMOP2f1 which is in type MatOfPoint2f
-				double approxDistance = Imgproc.arcLength(refMatPt, true) * 0.02;
-				Imgproc.approxPolyDP(refMatPt, approxCurve, approxDistance, true);
-
-				// Convert back to MatOfPoint
-				MatOfPoint points = new MatOfPoint(approxCurve.toArray());
-				// Get bounding rect
-				Rect r = Imgproc.boundingRect(points);
-				synchronized (imgLock) {
-					centerX = r.x + (r.width / 2);
-				}
-			}
-		});
-		visionThread.start();
+		CameraServer.getInstance().startAutomaticCapture();
 
 		alliance = DriverStation.getInstance().getAlliance();
 		station = DriverStation.getInstance().getLocation();
@@ -194,31 +153,56 @@ public class Robot extends IterativeRobot {
 	@Override
 	public void autonomousPeriodic() {
 		deploy.set(true);
-		switch (station) {
-		case 1:
-			if (field.charAt(0) == 'L' && goal == "switch") {
-				// alliance station 1 (left) switch on the left
-				// Goes straight to the switch and puts cube in
+		if (goal != "cross") {
+			switch (station) {
+			case 1: // alliance station 1 (left)
+				if (field.charAt(0) == 'L' && goal == "switch") {
+					// switch on the left Goes straight to the switch and puts cube in
 
-			} else if (field.charAt(0) == 'R' && goal == "switch") {
-				// alliance station 1 (left) switch on the right
-				// Goes the long way around the switch (avoid collisions)
+				} else if (field.charAt(0) == 'R' && goal == "switch") {
+					// switch on the right Goes the long way around the switch (avoid collisions)
 
-			} else if (field.charAt(1) == 'L' && goal == "scale") {
-				// alliance station 1 (left) scale on the left
-				// Goes the long way around the switch (avoid collisions)
+				} else if (field.charAt(1) == 'L' && goal == "scale") {
+					// scale on the left drive forward lift and drop at the scale
 
-			} else if (field.charAt(1) == 'R' && goal == "scale") {
-				// alliance station 1 (left) scale on the right
-				// Goes the long way around the switch (avoid collisions)
+				} else if (field.charAt(1) == 'R' && goal == "scale") {
+					// scale on the right drive forward turn right
 
+				}
+				break;
+			case 2: // alliance station 2 (middle)
+				if (field.charAt(0) == 'L' && goal == "switch") {
+					// switch on the left turns left and put the block
+
+				} else if (field.charAt(0) == 'R' && goal == "switch") {
+					// switch on the right turns right and put the block
+
+				} else if (field.charAt(1) == 'L' && goal == "scale") {
+					// scale on the left turn left and go the long way around the switch
+
+				} else if (field.charAt(1) == 'R' && goal == "scale") {
+					// scale on the right turn right and go the long way around the switch
+
+				}
+				break;
+			case 3: // alliance station 3 (right)
+				if (field.charAt(0) == 'L' && goal == "switch") {
+					// switch on the left Goes the long way around the switch (avoid collisions)
+
+				} else if (field.charAt(0) == 'R' && goal == "switch") {
+					// switch on the right Goes straight to the switch and puts cube in
+
+				} else if (field.charAt(1) == 'L' && goal == "scale") {
+					// scale on the left go forward turn left
+
+				} else if (field.charAt(1) == 'R' && goal == "scale") {
+					// scale on the right go forward to the scale
+
+				}
+				break;
 			}
-			break;
-		case 2:
-
-			break;
-		case 3:
-			break;
+		} else {
+			// cross the auton line
 		}
 	}
 
@@ -249,12 +233,6 @@ public class Robot extends IterativeRobot {
 		winchControl();
 		scissorControl();
 
-		// test vision
-		double centerX;
-		synchronized (imgLock) {
-			centerX = this.centerX;
-		}
-		SmartDashboard.putNumber("Center X", centerX);
 	}
 
 	/*
