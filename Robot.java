@@ -30,7 +30,11 @@ import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import edu.wpi.first.wpilibj.interfaces.Gyro;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.vision.VisionThread;
+
+import com.ctre.phoenix.ParamEnum;
 import com.ctre.phoenix.motorcontrol.ControlMode;
+import com.ctre.phoenix.motorcontrol.LimitSwitchNormal;
+import com.ctre.phoenix.motorcontrol.LimitSwitchSource;
 import com.ctre.phoenix.motorcontrol.can.TalonSRX;
 
 /**
@@ -65,10 +69,6 @@ public class Robot extends IterativeRobot {
 	// lift system
 	private Victor winch;
 	private TalonSRX leftScissor;
-	private Victor rightScissor;
-
-	// manipulators
-	private Victor intake;
 
 	// pneumatics
 	private DoubleSolenoid arm;
@@ -100,29 +100,43 @@ public class Robot extends IterativeRobot {
 		SmartDashboard.putString("Robot Init", "Initializing...");
 
 		driver = new Joystick(0);
-		operator = new XboxController(1);
 		driverController = new XboxController(0);
+		operator = new XboxController(1);
+
 		leftDrive = new Victor(0);
 		rightDrive = new Victor(1);
+		driveTrain = new DifferentialDrive(leftDrive, rightDrive);
+
 		winch = new Victor(2);
-		intake = new Victor(3);
-		rightScissor = new Victor(4);
 		leftScissor = new TalonSRX(5);
+		leftScissor.configSelectedFeedbackSensor(com.ctre.phoenix.motorcontrol.FeedbackDevice.CTRE_MagEncoder_Relative,
+				0, 0);
+		/*
+		 * Configured forward and reverse limit switch of Talon to be from a feedback
+		 * connector and be normally open
+		 */
+		leftScissor.configForwardLimitSwitchSource(LimitSwitchSource.FeedbackConnector, LimitSwitchNormal.NormallyOpen,
+				0);
+		leftScissor.configReverseLimitSwitchSource(LimitSwitchSource.FeedbackConnector, LimitSwitchNormal.NormallyOpen,
+				0);
+		/*
+		 * Talon configured to have soft limits 10000 native units in either direction
+		 * and enabled
+		 */
+		leftScissor.configForwardSoftLimitThreshold((int) (4096 * CLIMB), 0);
+		leftScissor.configReverseSoftLimitThreshold(0, 0);
+		leftScissor.configForwardSoftLimitEnable(true, 0);
+		leftScissor.configReverseSoftLimitEnable(true, 0);
+
 		arm = new DoubleSolenoid(4, 5);
 		deploy = new Solenoid(1);
 		compressor = new Compressor(0);
-		gyro = new ADXRS450_Gyro();
-
 		compressor.setClosedLoopControl(true);
 
+		gyro = new ADXRS450_Gyro();
 		gyro.calibrate();
 		Timer.delay(5);
 		gyro.reset();
-
-		driveTrain = new DifferentialDrive(leftDrive, rightDrive);
-
-		leftScissor.configSelectedFeedbackSensor(com.ctre.phoenix.motorcontrol.FeedbackDevice.CTRE_MagEncoder_Relative,
-				0, 0);
 
 		UsbCamera camera = CameraServer.getInstance().startAutomaticCapture();
 		camera.setResolution(IMG_WIDTH, IMG_HEIGHT);
@@ -151,12 +165,9 @@ public class Robot extends IterativeRobot {
 		});
 		visionThread.start();
 
-		runTime.reset();
-
 		alliance = DriverStation.getInstance().getAlliance();
 		station = DriverStation.getInstance().getLocation();
 		SmartDashboard.putString("Alliance", alliance + Integer.toString(station));
-
 		SmartDashboard.putString("Robot Init", "Initialized!");
 	}
 
@@ -182,8 +193,6 @@ public class Robot extends IterativeRobot {
 	 */
 	@Override
 	public void autonomousPeriodic() {
-		// driveTrain.arcadeDrive(0.4, 0);
-
 		deploy.set(true);
 		switch (station) {
 		case 1:
@@ -222,6 +231,8 @@ public class Robot extends IterativeRobot {
 
 		gyro.reset();
 		leftScissor.setSelectedSensorPosition(0, 0, 10);
+		// Configure Talon to clear sensor position on Forward Limit
+		leftScissor.configSetParameter(ParamEnum.eClearPositionOnLimitF, 1, 0, 0, 10);
 
 		SmartDashboard.putString("Teleop Init", "Initialized!");
 	}
@@ -368,118 +379,28 @@ public class Robot extends IterativeRobot {
 	}
 
 	/*
-	 * drives the scissor lift to the lowest position
-	 */
-	private void groundLevel() {
-		if (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 > 0) {
-			// go down when it is higher than the lowest level
-			leftScissor.set(ControlMode.PercentOutput, -0.5);
-			rightScissor.set(-0.5);
-			double timeOut = runTime.get();
-			while (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 > 0 && (runTime.get() - timeOut) < 5) {
-				SmartDashboard.putString("Going down", "Ground Level");
-			}
-			leftScissor.set(ControlMode.Velocity, 0);
-			rightScissor.set(0);
-		}
-	}
-
-	/*
 	 * controls the movement of the scissor lift.
 	 */
 	private void scissorControl() {
 		// scissor lift right joystick y override
 		leftScissor.set(ControlMode.PercentOutput, operator.getRawAxis(5));
-		rightScissor.set(operator.getRawAxis(5));
 
 		/*
 		 * Scissor lift on POV levels POV 0: loweest (pick up, vault running) POV 90:
 		 * switch level POV 180: scale (highest 6ft) POV 270: climb
 		 */
 		if (operator.getPOV() == 0) {
-			groundLevel();
+			leftScissor.set(ControlMode.Position, 0);
+			SmartDashboard.putString("Scissor Lift", "Ground Level");
 		} else if (operator.getPOV() == 90) {
-			switchLevel();
+			leftScissor.set(ControlMode.Position, SWITCH * 4096.0);
+			SmartDashboard.putString("Scissor Lift", "Switch Level");
 		} else if (operator.getPOV() == 180) {
-			scaleLevel();
+			leftScissor.set(ControlMode.Position, SCALE * 4096.0);
+			SmartDashboard.putString("Scissor Lift", "Scale Level");
 		} else if (operator.getPOV() == 270) {
-			climbLevel();
-		}
-	}
-
-	/*
-	 * drives the scissor lift to the switch level
-	 */
-	private void switchLevel() {
-		if (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 < SWITCH) {
-			// go up when it is lower than switch level
-			leftScissor.set(ControlMode.PercentOutput, 0.5);
-			rightScissor.set(0.5);
-			double timeOut = runTime.get();
-			while (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 <= SWITCH
-					&& (runTime.get() - timeOut) < 5) {
-				SmartDashboard.putString("Going up", "Switch");
-			}
-			leftScissor.set(ControlMode.Velocity, 0);
-			rightScissor.set(0);
-		} else if (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 > SWITCH) {
-			// go down when it is higher than switch level
-			leftScissor.set(ControlMode.PercentOutput, -0.5);
-			rightScissor.set(-0.5);
-			double timeOut = runTime.get();
-			while (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 > SWITCH
-					&& (runTime.get() - timeOut) < 5) {
-				SmartDashboard.putString("Going down", "Switch");
-			}
-			leftScissor.set(ControlMode.Velocity, 0);
-			rightScissor.set(0);
-		}
-	}
-
-	/*
-	 * drives the scissor lift to the scale level
-	 */
-	private void scaleLevel() {
-		if (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 < SCALE) {
-			// go up when it is lower than the scale level
-			leftScissor.set(ControlMode.PercentOutput, 0.5);
-			rightScissor.set(0.5);
-			double timeOut = runTime.get();
-			while (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 <= SCALE
-					&& (runTime.get() - timeOut) < 5) {
-				SmartDashboard.putString("Going up", "Scale");
-			}
-			leftScissor.set(ControlMode.Velocity, 0);
-			rightScissor.set(0);
-		} else if (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 > SCALE) {
-			// go down when it is higher than the scale level
-			leftScissor.set(ControlMode.PercentOutput, -0.5);
-			rightScissor.set(-0.5);
-			double timeOut = runTime.get();
-			while (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 > SCALE
-					&& (runTime.get() - timeOut) < 5) {
-				SmartDashboard.putString("Going down", "Scale");
-			}
-			leftScissor.set(ControlMode.Velocity, 0);
-			rightScissor.set(0);
-		}
-	}
-
-	/*
-	 * drives the scissor lift to the climber level
-	 */
-	private void climbLevel() {
-		if (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 < CLIMB) {
-			// go up when it is lower than switch level
-			leftScissor.set(ControlMode.PercentOutput, 0.5);
-			rightScissor.set(0.5);
-			double timeOut = runTime.get();
-			while (Math.abs(leftScissor.getSelectedSensorPosition(0)) / 4096.0 <= CLIMB
-					&& (runTime.get() - timeOut) < 5) {
-				SmartDashboard.putString("Going up", "Climb");
-			}
-			leftScissor.set(ControlMode.Velocity, 0);
-			rightScissor.set(0);
+			leftScissor.set(ControlMode.Position, CLIMB * 4096.0);
+			SmartDashboard.putString("Scissor Lift", "Climb Level");
 		}
 	}
 
