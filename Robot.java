@@ -1,4 +1,3 @@
-
 /*----------------------------------------------------------------------------*/
 /* Copyright (c) 2017-2018 FIRST. All Rights Reserved.                        */
 /* Open Source Software - may be modified and shared by FRC teams. The code   */
@@ -56,7 +55,7 @@ public class Robot extends IterativeRobot {
 	// Joystick
 	private Joystick driver;
 	private XboxController operator;
-	public XboxController driverController;
+	public XboxController driverController; // Ian drives
 
 	// Drive train
 	private Victor leftDrive;
@@ -91,7 +90,7 @@ public class Robot extends IterativeRobot {
 	private static final int IMG_HEIGHT = 240;
 	private VisionThread visionThread;
 	private double centerX = 0.0;
-	private final Object imgLock = new Object();	
+	private final Object imgLock = new Object();
 
 	/**
 	 * This function is run once each time the robot turns on.
@@ -117,7 +116,7 @@ public class Robot extends IterativeRobot {
 		compressor.setClosedLoopControl(true);
 
 		gyro.calibrate();
-		Timer.delay(0.05);
+		Timer.delay(5);
 		gyro.reset();
 
 		driveTrain = new DifferentialDrive(leftDrive, rightDrive);
@@ -234,51 +233,10 @@ public class Robot extends IterativeRobot {
 	public void teleopPeriodic() {
 
 		telemetry();
-
-		arcadeDrive();
-
-		// operator x closes up y opens
-		if (operator.getXButton()) {
-			arm.set(DoubleSolenoid.Value.kReverse);
-		} else if (operator.getYButton()) {
-			arm.set(DoubleSolenoid.Value.kForward);
-		}
-
-		// Operator Stick Intakes
-		if (operator.getAButton()) {
-			intake.set(1); // A spit out
-		} else if (operator.getBButton()) {
-			intake.set(-0.5); // B intake
-		} else {
-			intake.set(0); // stop motor
-		}
-
-		// winch back button down start button up
-		if (operator.getStartButton()) {
-			winch.set(1);
-		} else if (operator.getBackButton()) {
-			winch.set(-1);
-		} else {
-			winch.set(0);
-		}
-
-		// scissor lift right joystick y override
-		leftScissor.set(ControlMode.PercentOutput, operator.getRawAxis(5));
-		rightScissor.set(operator.getRawAxis(5));
-
-		/*
-		 * Scissor lift on POV levels POV 0: loweest (pick up, vault running)
-		 * POV 90: switch level POV 180: scale (highest 6ft) POV 270: climb
-		 */
-		if (operator.getPOV() == 0) {
-			groundLevel();
-		} else if (operator.getPOV() == 90) {
-			switchLevel();
-		} else if (operator.getPOV() == 180) {
-			scaleLevel();
-		} else if (operator.getPOV() == 270) {
-			climbLevel();
-		}
+		drive();
+		armControl();
+		winchControl();
+		scissorControl();
 
 		// test vision
 		double centerX;
@@ -294,72 +252,119 @@ public class Robot extends IterativeRobot {
 	private void telemetry() {
 		// gyro reading
 		SmartDashboard.putNumber("Gyro", gyro.getAngle());
-
 		// encoder readings
 		SmartDashboard.putNumber("Scissor lift position: ",
 				Math.abs(leftScissor.getSelectedSensorPosition(0) / 4096.0));
-
 		// pneumatics
 		SmartDashboard.putBoolean("Compressor enabled", compressor.enabled());
 		SmartDashboard.putBoolean("Pressure Switch On", compressor.getPressureSwitchValue());
-
 		// drive train
-		SmartDashboard.putString("Gear", Integer.toString(gear));
 		if (gear == 1) {
 			SmartDashboard.putString("Gear", "40% Speed");
 		} else if (gear == 2) {
 			SmartDashboard.putString("Gear", "60% Speed");
 		} else if (gear == 3) {
 			SmartDashboard.putString("Gear", "80% Speed");
-		} else if (gear == 0) {
+		} else if (gear == 4) {
 			SmartDashboard.putString("Gear", "100% Speed");
 		}
-
 		// runtime
-		SmartDashboard.putString("Run Time", Double.toString(runTime.get()));
+		SmartDashboard.putString("Run time", Double.toString(runTime.get()));
 	}
 
 	/*
 	 * Programmable four speed arcade drive
 	 */
-	private void arcadeDrive() {
+	private void drive() {
 		double turnSpeed;
-		if (driver.getRawAxis(0) > 0.3 || driver.getRawAxis(0) < -0.3) {
-			turnSpeed = -driver.getRawAxis(0);
+		if (operator != null) {
+			if (Math.abs(driver.getRawAxis(4)) > 0.3) {
+				turnSpeed = -driver.getRawAxis(4);
+			} else {
+				turnSpeed = 0;
+			}
+			switch (gear) {
+			case 1:
+				// gear 1 40% speed
+				driveTrain.arcadeDrive(driver.getRawAxis(5) * 0.4, turnSpeed * 0.4);
+				break;
+			case 2:
+				// gear 2 60% speed
+				driveTrain.arcadeDrive(driver.getRawAxis(5) * 0.6, turnSpeed * 0.6);
+				break;
+			case 3:
+				// gear 3 80% speed
+				driveTrain.arcadeDrive(driver.getRawAxis(5) * 0.8, turnSpeed * 0.8);
+				break;
+			case 4:
+				// gear 4 100% speed
+				driveTrain.arcadeDrive(driver.getRawAxis(5), turnSpeed);
+				break;
+			}
+
+			// trigger buttons shift gears
+			if (driver.getRawButton(5) && gear > 1) {
+				// left gear down
+				gear--;
+			} else if (driver.getRawButton(6) && gear < 4) {
+				// right gear up
+				gear++;
+			}
 		} else {
-			turnSpeed = 0;
+			if (driverController.getRawAxis(0) > 0.3 || driverController.getRawAxis(0) < -0.3) {
+				turnSpeed = -driverController.getRawAxis(0);
+			} else {
+				turnSpeed = 0;
+			}
+			// Gears of the drive train left joystick
+			driveTrain.arcadeDrive(driverController.getRawAxis(1), turnSpeed);
+			gear = 4;
+			// When A is held the the driveTrain goes 80%
+			if (driverController.getAButton()) { // Listens for A button
+				driveTrain.arcadeDrive(driverController.getRawAxis(1) * 0.8, turnSpeed * 0.8);
+				// While A button is held it executes the normal code at 80%
+				gear = 3;
+			}
+			// When B is held the driveTrain goes 60%
+			if (driverController.getBButton()) {
+				driveTrain.arcadeDrive(driverController.getRawAxis(1) * 0.6, turnSpeed * 0.6);
+				// While B button is held it executes the normal code at 60%
+				gear = 2;
+			}
+			// When Y is held the driveTrain goes 40%
+			if (driverController.getYButton()) {
+				driveTrain.arcadeDrive(driverController.getRawAxis(1) * 0.4, turnSpeed * 0.4);
+				// While Y button is held it executes the normal code at 40%
+				gear = 1;
+			}
+		}
+	}
+
+	/*
+	 * controls the movement of the pneumatic arm intake. operator x closes up y
+	 * opens
+	 */
+	private void armControl() {
+		if (operator.getXButton()) {
+			arm.set(DoubleSolenoid.Value.kReverse);
+		} else if (operator.getYButton()) {
+			arm.set(DoubleSolenoid.Value.kForward);
+		}
+	}
+
+	/*
+	 * controls the winch. back button down start button up
+	 * 
+	 */
+	private void winchControl() {
+		if (operator.getStartButton()) {
+			winch.set(1);
+		} else if (operator.getBackButton()) {
+			winch.set(-1);
+		} else {
+			winch.set(0);
 		}
 
-		// Gears of the drive train left joystick
-		driveTrain.arcadeDrive(driver.getRawAxis(1), turnSpeed);
-		gear = 0;
-		// When A is held the the driveTrain goes 80%
-		if (driverController.getAButton()) { // Listens for A button
-			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.8, turnSpeed * 0.8);
-			gear = 1;
-			// While A button is held it executes the normal code at 80%
-		}
-		// When B is held the driveTrain goes 60%
-		if (driverController.getBButton()) {
-			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.6, turnSpeed * 0.6);
-			gear = 2;
-			// While B button is held it executes the normal code at 60%
-		}
-		// When Y is held the driveTrain goes 40%
-		if (driverController.getYButton()) {
-			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.4, turnSpeed * 0.4);
-			gear = 3;
-			// While Y button is held it executes the normal code at 40%
-		}
-
-		// trigger buttons shift gears
-		if (driver.getRawButton(5) && gear > 1) {
-			// left gear down
-			gear--;
-		} else if (driver.getRawButton(6) && gear < 4) {
-			// right gear up
-			gear++;
-		}
 	}
 
 	/*
@@ -376,6 +381,29 @@ public class Robot extends IterativeRobot {
 			}
 			leftScissor.set(ControlMode.Velocity, 0);
 			rightScissor.set(0);
+		}
+	}
+
+	/*
+	 * controls the movement of the scissor lift.
+	 */
+	private void scissorControl() {
+		// scissor lift right joystick y override
+		leftScissor.set(ControlMode.PercentOutput, operator.getRawAxis(5));
+		rightScissor.set(operator.getRawAxis(5));
+
+		/*
+		 * Scissor lift on POV levels POV 0: loweest (pick up, vault running) POV 90:
+		 * switch level POV 180: scale (highest 6ft) POV 270: climb
+		 */
+		if (operator.getPOV() == 0) {
+			groundLevel();
+		} else if (operator.getPOV() == 90) {
+			switchLevel();
+		} else if (operator.getPOV() == 180) {
+			scaleLevel();
+		} else if (operator.getPOV() == 270) {
+			climbLevel();
 		}
 	}
 
