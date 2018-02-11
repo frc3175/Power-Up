@@ -61,6 +61,9 @@ public class Robot extends IterativeRobot {
 	private Victor winch;
 	private TalonSRX leftScissor;
 
+		// manipulators
+	private Victor intake;
+	
 	// pneumatics
 	private DoubleSolenoid arm;
 	private Solenoid deploy;
@@ -339,8 +342,15 @@ public class Robot extends IterativeRobot {
 		} else if (operator.getYButton()) {
 			arm.set(DoubleSolenoid.Value.kForward);
 		}
+		// Operator Stick Intakes
+		if (operator.getAButton()) {
+			intake.set(1); // A spit out
+		} else if (operator.getBButton()) {
+			intake.set(-0.5); // B intake
+		} else {
+			intake.set(0); // stop motor
+		}
 	}
-
 	/*
 	 * controls the winch. back button down start button up
 	 * 
