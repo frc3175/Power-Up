@@ -1,10 +1,14 @@
-# FIRST Power Up
+# 3175 First Robotics
 
-This code is for the 2018 First Robotics Competition. For more details on the challenges of 2018, go [here](https://firstfrc.blob.core.windows.net/frc2018/Manual/2018FRCGameSeasonManual.pdf).
+This is the code for team 3175 First Robotics.
 
-To use this properly on your local machine, first follow the first two
-instructions at the top  of the page [here](https://wpilib.screenstepslive.com/s/currentCS/m/java).
-Then create a new Java Robot Project and select Iterative Robot.
+## Version
+Version {Alpha_0.15}
 
-Paste the files from this repository (except `README.md`) in the `src` folder of your project and
-you're off to the races.
+## Maintainers
+[@Ian Shogren](https://github.com/Ianshogren).
+[@Tony Pan](https://github.com/tonypan2000).
+
+## API
+Phoenix Framework
+[Direct Download](http://www.ctr-electronics.com/downloads/installers/CTRE%20Phoenix%20Framework%20v5.2.1.1.zip)
