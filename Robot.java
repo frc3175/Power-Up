@@ -61,12 +61,10 @@ public class Robot extends IterativeRobot {
 	private Victor winch;
 	private TalonSRX leftScissor;
 
-	// manipulators
-	private Victor intake;
-	
 	// pneumatics
-	private DoubleSolenoid arm;
+	private DoubleSolenoid intakeArm;
 	private Solenoid deploy;
+	private Solenoid climberArm;
 	private Compressor compressor;
 
 	// Gyroscope
@@ -93,13 +91,11 @@ public class Robot extends IterativeRobot {
 		leftDrive = new Victor(0);
 		rightDrive = new Victor(1);
 		driveTrain = new DifferentialDrive(leftDrive, rightDrive);
-		intake = new Victor(3);
 
 		winch = new Victor(2);
 		leftScissor = new TalonSRX(5);
 		leftScissor.configSelectedFeedbackSensor(com.ctre.phoenix.motorcontrol.FeedbackDevice.CTRE_MagEncoder_Relative,
 				0, 0);
-		
 		/*
 		 * Configured forward and reverse limit switch of Talon to be from a feedback
 		 * connector and be normally open
@@ -117,8 +113,9 @@ public class Robot extends IterativeRobot {
 		leftScissor.configForwardSoftLimitEnable(true, 0);
 		leftScissor.configReverseSoftLimitEnable(true, 0);
 
-		arm = new DoubleSolenoid(4, 5);
-		deploy = new Solenoid(1);
+		intakeArm = new DoubleSolenoid(4, 5);
+		deploy = new Solenoid(6);
+		climberArm = new Solenoid(7);
 		compressor = new Compressor(0);
 		compressor.setClosedLoopControl(true);
 
@@ -237,7 +234,7 @@ public class Robot extends IterativeRobot {
 		armControl();
 		winchControl();
 		scissorControl();
-
+		climbArmControl();
 	}
 
 	/*
@@ -340,20 +337,12 @@ public class Robot extends IterativeRobot {
 	 */
 	private void armControl() {
 		if (operator.getXButton()) {
-			arm.set(DoubleSolenoid.Value.kReverse);
+			intakeArm.set(DoubleSolenoid.Value.kReverse);
 		} else if (operator.getYButton()) {
-			arm.set(DoubleSolenoid.Value.kForward);
-		}
-	
-		// Operator Stick Intakes
-		if (operator.getAButton()) {
-			intake.set(1); // A spit out
-		} else if (operator.getBButton()) {
-			intake.set(-0.5); // B intake
-		} else {
-			intake.set(0); // stop motor
+			intakeArm.set(DoubleSolenoid.Value.kForward);
 		}
 	}
+
 	/*
 	 * controls the winch. back button down start button up
 	 * 
@@ -392,6 +381,12 @@ public class Robot extends IterativeRobot {
 		} else if (operator.getPOV() == 270) {
 			leftScissor.set(ControlMode.Position, CLIMB * 4096.0);
 			SmartDashboard.putString("Scissor Lift", "Climb Level");
+		}
+	}
+
+	private void climbArmControl() {
+		if (operator.getRawButton(5)) {
+			climberArm.set(true);
 		}
 	}
 
