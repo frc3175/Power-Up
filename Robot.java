@@ -40,6 +40,7 @@ public class Robot extends IterativeRobot {
 	// private static final double MAX_HEIGHT = 18.5;
 
 	private int level = 0;
+	private boolean deployed = false;
 
 	/** SET THIS BEFORE MATCH! **/
 	public String goal = "switch";
@@ -153,57 +154,69 @@ public class Robot extends IterativeRobot {
 	 */
 	@Override
 	public void autonomousPeriodic() {
-		deploy.set(false);
-		if (goal != "cross") {
+		if (!deployed) {
+			deploy.set(true);
+			if (runTime.get() >= 0.5) {
+				deployed = true;
+				deploy.set(false);
+			}
+		}
+		if (!goal.equals("cross") && runTime.get() > 0.5) {
 			switch (station) {
 			case 1: // alliance station 1 (left)
 				if (field.charAt(0) == 'L' && goal == "switch") {
 					// switch on the left Goes straight to the switch and puts cube in
+					if (runTime.get() < 1.8) {
+						driveTrain.arcadeDrive(0.75, 0);
+					}
 
-				} else if (field.charAt(0) == 'R' && goal == "switch") {
+				} else if (field.charAt(0) == 'R' && goal.equals("switch")) {
 					// switch on the right Goes the long way around the switch (avoid collisions)
 
-				} else if (field.charAt(1) == 'L' && goal == "scale") {
+				} else if (field.charAt(1) == 'L' && goal.equals("scale")) {
 					// scale on the left drive forward lift and drop at the scale
 
-				} else if (field.charAt(1) == 'R' && goal == "scale") {
+				} else if (field.charAt(1) == 'R' && goal.equals("scale")) {
 					// scale on the right drive forward turn right
 
 				}
 				break;
 			case 2: // alliance station 2 (middle)
-				if (field.charAt(0) == 'L' && goal == "switch") {
+				if (field.charAt(0) == 'L' && goal.equals("switch")) {
 					// switch on the left turns left and put the block
 
-				} else if (field.charAt(0) == 'R' && goal == "switch") {
+				} else if (field.charAt(0) == 'R' && goal.equals("switch")) {
 					// switch on the right turns right and put the block
 
-				} else if (field.charAt(1) == 'L' && goal == "scale") {
+				} else if (field.charAt(1) == 'L' && goal.equals("scale")) {
 					// scale on the left turn left and go the long way around the switch
 
-				} else if (field.charAt(1) == 'R' && goal == "scale") {
+				} else if (field.charAt(1) == 'R' && goal.equals("scale")) {
 					// scale on the right turn right and go the long way around the switch
 
 				}
 				break;
 			case 3: // alliance station 3 (right)
-				if (field.charAt(0) == 'L' && goal == "switch") {
+				if (field.charAt(0) == 'L' && goal.equals("switch")) {
 					// switch on the left Goes the long way around the switch (avoid collisions)
 
-				} else if (field.charAt(0) == 'R' && goal == "switch") {
+				} else if (field.charAt(0) == 'R' && goal.equals("switch")) {
 					// switch on the right Goes straight to the switch and puts cube in
 
-				} else if (field.charAt(1) == 'L' && goal == "scale") {
+				} else if (field.charAt(1) == 'L' && goal.equals("scale")) {
 					// scale on the left go forward turn left
 
-				} else if (field.charAt(1) == 'R' && goal == "scale") {
+				} else if (field.charAt(1) == 'R' && goal.equals("scale")) {
 					// scale on the right go forward to the scale
 
 				}
 				break;
 			}
-		} else {
+		} else if (goal.equals("cross") && runTime.get() > 0.5) {
 			// cross the auton line
+			if (runTime.get() < 1.8) {
+				driveTrain.arcadeDrive(0.75, 0);
+			}
 		}
 	}
 
@@ -317,25 +330,36 @@ public class Robot extends IterativeRobot {
 				turnSpeed = 0;
 			}
 			// Gears of the drive train left joystick
-			driveTrain.arcadeDrive(driverController.getRawAxis(1), turnSpeed);
-			gear = 4;
-			// When A is held the the driveTrain goes 80%
-			if (driverController.getAButton()) { // Listens for A button
-				driveTrain.arcadeDrive(driverController.getRawAxis(1) * 0.8, turnSpeed * 0.8);
+			if (driverController.getXButton()) {
+				gear = 4;
+			} else if (driverController.getAButton()) { // Listens for A button
 				// While A button is held it executes the normal code at 80%
 				gear = 3;
-			}
-			// When B is held the driveTrain goes 60%
-			if (driverController.getBButton()) {
-				driveTrain.arcadeDrive(driverController.getRawAxis(1) * 0.6, turnSpeed * 0.6);
+			} else if (driverController.getBButton()) {
 				// While B button is held it executes the normal code at 60%
 				gear = 2;
-			}
-			// When Y is held the driveTrain goes 40%
-			if (driverController.getYButton()) {
-				driveTrain.arcadeDrive(driverController.getRawAxis(1) * 0.4, turnSpeed * 0.4);
+			} else if (driverController.getYButton()) {
 				// While Y button is held it executes the normal code at 40%
 				gear = 1;
+			}
+
+			switch (gear) {
+			case 1:
+				// gear 1 40% speed
+				driveTrain.arcadeDrive(driver.getRawAxis(5) * 0.4, turnSpeed * 0.4);
+				break;
+			case 2:
+				// gear 2 60% speed
+				driveTrain.arcadeDrive(driver.getRawAxis(5) * 0.6, turnSpeed * 0.6);
+				break;
+			case 3:
+				// gear 3 80% speed
+				driveTrain.arcadeDrive(driver.getRawAxis(5) * 0.8, turnSpeed * 0.8);
+				break;
+			case 4:
+				// gear 4 100% speed
+				driveTrain.arcadeDrive(driver.getRawAxis(5), turnSpeed);
+				break;
 			}
 		}
 	}
@@ -372,7 +396,9 @@ public class Robot extends IterativeRobot {
 	 */
 	private void scissorControl() {
 		// scissor lift right joystick y override
-		leftScissor.set(ControlMode.PercentOutput, operator.getRawAxis(5));
+		if (Math.abs(operator.getRawAxis(5)) > 0.3) {
+			leftScissor.set(ControlMode.PercentOutput, operator.getRawAxis(5));
+		}
 
 		/*
 		 * Scissor lift on POV levels POV 0: loweest (pick up, vault running) POV 90:
