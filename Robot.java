@@ -24,8 +24,7 @@ import edu.wpi.first.wpilibj.interfaces.Gyro;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import com.ctre.phoenix.ParamEnum;
 import com.ctre.phoenix.motorcontrol.ControlMode;
-import com.ctre.phoenix.motorcontrol.LimitSwitchNormal;
-import com.ctre.phoenix.motorcontrol.LimitSwitchSource;
+import com.ctre.phoenix.motorcontrol.NeutralMode;
 import com.ctre.phoenix.motorcontrol.can.TalonSRX;
 
 /**
@@ -35,9 +34,12 @@ import com.ctre.phoenix.motorcontrol.can.TalonSRX;
 public class Robot extends IterativeRobot {
 
 	// scissor lift preset heights
-	private static double SWITCH = 1.0;
-	private static double SCALE = 3.0;
-	private static double CLIMB = 4.0;
+	private static final double SWITCH = 6.0 * 4096;
+	private static final double SCALE = 15.0 * 4096;
+	private static final double CLIMB = 17.0 * 4096;
+	// private static final double MAX_HEIGHT = 18.5;
+
+	private int level = 0;
 
 	/** SET THIS BEFORE MATCH! **/
 	public String goal = "switch";
@@ -61,10 +63,11 @@ public class Robot extends IterativeRobot {
 	private Victor winch;
 	private TalonSRX leftScissor;
 
+	private Victor intake = new Victor(3);;
+
 	// pneumatics
 	private DoubleSolenoid intakeArm;
 	private Solenoid deploy;
-	private Solenoid climberArm;
 	private Compressor compressor;
 
 	// Gyroscope
@@ -95,29 +98,25 @@ public class Robot extends IterativeRobot {
 		winch = new Victor(2);
 		leftScissor = new TalonSRX(5);
 		leftScissor.configSelectedFeedbackSensor(com.ctre.phoenix.motorcontrol.FeedbackDevice.CTRE_MagEncoder_Relative,
-				0, 0);
-		/*
-		 * Configured forward and reverse limit switch of Talon to be from a feedback
-		 * connector and be normally open
-		 */
-		leftScissor.configForwardLimitSwitchSource(LimitSwitchSource.FeedbackConnector, LimitSwitchNormal.NormallyOpen,
-				0);
-		leftScissor.configReverseLimitSwitchSource(LimitSwitchSource.FeedbackConnector, LimitSwitchNormal.NormallyOpen,
-				0);
-		/*
-		 * Talon configured to have soft limits 10000 native units in either direction
-		 * and enabled
-		 */
-		leftScissor.configForwardSoftLimitThreshold((int) (4096 * CLIMB), 0);
-		leftScissor.configReverseSoftLimitThreshold(0, 0);
-		leftScissor.configForwardSoftLimitEnable(true, 0);
-		leftScissor.configReverseSoftLimitEnable(true, 0);
+				0, 10);
+		// /*
+		// * Talon configured to have soft limits 10000 native units in either direction
+		// * and enabled
+		// */
+		// leftScissor.configForwardSoftLimitThreshold(0, 0);
+		// leftScissor.configReverseSoftLimitThreshold((int) (4096 * MAX_HEIGHT), 0);
+		// leftScissor.configForwardSoftLimitEnable(true, 0);
+		// leftScissor.configReverseSoftLimitEnable(true, 0);
+		/* set closed loop gains in slot0, typically kF stays zero. */
+		leftScissor.config_kF(0, 0.0, 10);
+		leftScissor.config_kP(0, 0.1, 10);
+		leftScissor.config_kI(0, 0.0, 10);
+		leftScissor.config_kD(0, 0.0, 10);
 
 		intakeArm = new DoubleSolenoid(4, 5);
 		deploy = new Solenoid(6);
-		climberArm = new Solenoid(7);
 		compressor = new Compressor(0);
-		compressor.setClosedLoopControl(true);
+		compressor.setClosedLoopControl(false);
 
 		gyro = new ADXRS450_Gyro();
 		gyro.calibrate();
@@ -154,7 +153,7 @@ public class Robot extends IterativeRobot {
 	 */
 	@Override
 	public void autonomousPeriodic() {
-		deploy.set(true);
+		deploy.set(false);
 		if (goal != "cross") {
 			switch (station) {
 			case 1: // alliance station 1 (left)
@@ -217,6 +216,7 @@ public class Robot extends IterativeRobot {
 
 		gyro.reset();
 		leftScissor.setSelectedSensorPosition(0, 0, 10);
+		leftScissor.setNeutralMode(NeutralMode.Brake);
 		// Configure Talon to clear sensor position on Forward Limit
 		leftScissor.configSetParameter(ParamEnum.eClearPositionOnLimitF, 1, 0, 0, 10);
 
@@ -234,7 +234,16 @@ public class Robot extends IterativeRobot {
 		armControl();
 		winchControl();
 		scissorControl();
-		climbArmControl();
+
+		// Operator Stick Intakes
+		if (operator.getAButton()) {
+			intake.set(1); // A spit out
+		} else if (operator.getBButton()) {
+			intake.set(-0.5); // B intake
+		} else {
+			intake.set(0); // stop motor
+		}
+
 	}
 
 	/*
@@ -370,23 +379,27 @@ public class Robot extends IterativeRobot {
 		 * switch level POV 180: scale (highest 6ft) POV 270: climb
 		 */
 		if (operator.getPOV() == 0) {
-			leftScissor.set(ControlMode.Position, 0);
+			level = 0;
 			SmartDashboard.putString("Scissor Lift", "Ground Level");
 		} else if (operator.getPOV() == 90) {
-			leftScissor.set(ControlMode.Position, SWITCH * 4096.0);
+			level = 1;
 			SmartDashboard.putString("Scissor Lift", "Switch Level");
 		} else if (operator.getPOV() == 180) {
-			leftScissor.set(ControlMode.Position, SCALE * 4096.0);
+			level = 2;
 			SmartDashboard.putString("Scissor Lift", "Scale Level");
 		} else if (operator.getPOV() == 270) {
-			leftScissor.set(ControlMode.Position, CLIMB * 4096.0);
+			level = 3;
 			SmartDashboard.putString("Scissor Lift", "Climb Level");
 		}
-	}
 
-	private void climbArmControl() {
-		if (operator.getRawButton(5)) {
-			climberArm.set(true);
+		if (level == 0) {
+			leftScissor.set(ControlMode.Position, 0);
+		} else if (level == 1) {
+			leftScissor.set(ControlMode.Position, SWITCH * 4096.0);
+		} else if (level == 2) {
+			leftScissor.set(ControlMode.Position, SCALE * 4096.0);
+		} else if (level == 3) {
+			leftScissor.set(ControlMode.Position, CLIMB * 4096.0);
 		}
 	}
 
