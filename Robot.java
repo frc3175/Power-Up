@@ -24,6 +24,7 @@ import edu.wpi.first.wpilibj.interfaces.Gyro;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import com.ctre.phoenix.ParamEnum;
 import com.ctre.phoenix.motorcontrol.ControlMode;
+import com.ctre.phoenix.motorcontrol.IFollower;
 import com.ctre.phoenix.motorcontrol.NeutralMode;
 import com.ctre.phoenix.motorcontrol.can.TalonSRX;
 
@@ -112,6 +113,8 @@ public class Robot extends IterativeRobot {
 		leftScissor.configNominalOutputReverse(0, 10);
 		leftScissor.configPeakOutputForward(1, 10);
 		leftScissor.configPeakOutputReverse(-1, 10);
+		
+		((IFollower) rightScissor).follow(leftScissor);
 
 		intakeArm = new DoubleSolenoid(4, 5);
 		deploy = new Solenoid(6);
