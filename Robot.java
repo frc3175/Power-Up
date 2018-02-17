@@ -34,12 +34,11 @@ import com.ctre.phoenix.motorcontrol.can.TalonSRX;
 public class Robot extends IterativeRobot {
 
 	// scissor lift preset heights
-	private static final double SWITCH = 6.0 * 4096;
-	private static final double SCALE = 15.0 * 4096;
-	private static final double CLIMB = 17.0 * 4096;
+	private static final double SWITCH = -6.0 * 4096;
+	private static final double SCALE = -15.0 * 4096;
+	private static final double CLIMB = -17.0 * 4096;
 	// private static final double MAX_HEIGHT = 18.5;
 
-	private int level = 0;
 	private boolean deployed = false;
 
 	/** SET THIS BEFORE MATCH! **/
@@ -63,6 +62,7 @@ public class Robot extends IterativeRobot {
 	// lift system
 	private Victor winch;
 	private TalonSRX leftScissor;
+	private Victor rightScissor;
 
 	private Victor intake = new Victor(3);;
 
@@ -97,31 +97,30 @@ public class Robot extends IterativeRobot {
 		driveTrain = new DifferentialDrive(leftDrive, rightDrive);
 
 		winch = new Victor(2);
+		rightScissor = new Victor(4);
 		leftScissor = new TalonSRX(5);
 		leftScissor.configSelectedFeedbackSensor(com.ctre.phoenix.motorcontrol.FeedbackDevice.CTRE_MagEncoder_Relative,
 				0, 10);
-		// /*
-		// * Talon configured to have soft limits 10000 native units in either direction
-		// * and enabled
-		// */
-		// leftScissor.configForwardSoftLimitThreshold(0, 0);
-		// leftScissor.configReverseSoftLimitThreshold((int) (4096 * MAX_HEIGHT), 0);
-		// leftScissor.configForwardSoftLimitEnable(true, 0);
-		// leftScissor.configReverseSoftLimitEnable(true, 0);
+		leftScissor.setSensorPhase(true);
 		/* set closed loop gains in slot0, typically kF stays zero. */
 		leftScissor.config_kF(0, 0.0, 10);
 		leftScissor.config_kP(0, 0.1, 10);
 		leftScissor.config_kI(0, 0.0, 10);
 		leftScissor.config_kD(0, 0.0, 10);
+		/* set the peak and nominal outputs, 12V means full */
+		leftScissor.configNominalOutputForward(0, 10);
+		leftScissor.configNominalOutputReverse(0, 10);
+		leftScissor.configPeakOutputForward(1, 10);
+		leftScissor.configPeakOutputReverse(-1, 10);
 
 		intakeArm = new DoubleSolenoid(4, 5);
 		deploy = new Solenoid(6);
 		compressor = new Compressor(0);
-		compressor.setClosedLoopControl(false);
+		compressor.setClosedLoopControl(true);
 
 		gyro = new ADXRS450_Gyro();
 		gyro.calibrate();
-		Timer.delay(5);
+		// Timer.delay(5);
 		gyro.reset();
 
 		CameraServer.getInstance().startAutomaticCapture();
@@ -167,11 +166,28 @@ public class Robot extends IterativeRobot {
 				if (field.charAt(0) == 'L' && goal == "switch") {
 					// switch on the left Goes straight to the switch and puts cube in
 					if (runTime.get() < 1.8) {
-						driveTrain.arcadeDrive(0.75, 0);
+						driveTrain.arcadeDrive(0.75, 0); // Goes forward (1.3 seconds)
+					} else if (runTime.get() < 3.8) {
+						leftScissor.set(ControlMode.Position, SWITCH); // scissor lift raises to switch level
+					} else if (runTime.get() < 4.5) {
+						intakeArm.set(DoubleSolenoid.Value.kForward); // release block
 					}
 
 				} else if (field.charAt(0) == 'R' && goal.equals("switch")) {
 					// switch on the right Goes the long way around the switch (avoid collisions)
+					// if (runTime.get() < 1.8) {
+					// driveTrain.arcadeDrive(0.75, 0); // Goes forward (1.3 seconds)
+					// } else if (runTime.get() < 2.1) {
+					// // Turns right (0.3 seconds)
+					// leftDrive.set(0.5);
+					// rightDrive.set(-0.5);
+					// } else if (runTime.get() < 2.8) {
+					// driveTrain.arcadeDrive(0.5, 0); // Goes forward (0.7 seconds)
+					// } else if (runTime.get() < 3.8) {
+					// leftScissor.set(ControlMode.Position, SWITCH);
+					// } else if (runTime.get() < 4.5) {
+					// intakeArm.set(DoubleSolenoid.Value.kForward);
+					// }
 
 				} else if (field.charAt(1) == 'L' && goal.equals("scale")) {
 					// scale on the left drive forward lift and drop at the scale
@@ -266,8 +282,7 @@ public class Robot extends IterativeRobot {
 		// gyro reading
 		SmartDashboard.putNumber("Gyro", gyro.getAngle());
 		// encoder readings
-		SmartDashboard.putNumber("Scissor lift position: ",
-				Math.abs(leftScissor.getSelectedSensorPosition(0) / 4096.0));
+		SmartDashboard.putNumber("Scissor lift position: ", leftScissor.getSelectedSensorPosition(0) / 4096.0);
 		// pneumatics
 		SmartDashboard.putBoolean("Compressor enabled", compressor.enabled());
 		SmartDashboard.putBoolean("Pressure Switch On", compressor.getPressureSwitchValue());
@@ -331,35 +346,21 @@ public class Robot extends IterativeRobot {
 			}
 			// Gears of the drive train left joystick
 			if (driverController.getXButton()) {
+				// gear 1 40% speed
+				driveTrain.arcadeDrive(driver.getRawAxis(5) * 0.4, turnSpeed * 0.4);
 				gear = 4;
 			} else if (driverController.getAButton()) { // Listens for A button
 				// While A button is held it executes the normal code at 80%
+				driveTrain.arcadeDrive(driver.getRawAxis(5) * 0.6, turnSpeed * 0.6);
 				gear = 3;
 			} else if (driverController.getBButton()) {
 				// While B button is held it executes the normal code at 60%
+				driveTrain.arcadeDrive(driver.getRawAxis(5) * 0.8, turnSpeed * 0.8);
 				gear = 2;
 			} else if (driverController.getYButton()) {
 				// While Y button is held it executes the normal code at 40%
-				gear = 1;
-			}
-
-			switch (gear) {
-			case 1:
-				// gear 1 40% speed
-				driveTrain.arcadeDrive(driver.getRawAxis(5) * 0.4, turnSpeed * 0.4);
-				break;
-			case 2:
-				// gear 2 60% speed
-				driveTrain.arcadeDrive(driver.getRawAxis(5) * 0.6, turnSpeed * 0.6);
-				break;
-			case 3:
-				// gear 3 80% speed
-				driveTrain.arcadeDrive(driver.getRawAxis(5) * 0.8, turnSpeed * 0.8);
-				break;
-			case 4:
-				// gear 4 100% speed
 				driveTrain.arcadeDrive(driver.getRawAxis(5), turnSpeed);
-				break;
+				gear = 1;
 			}
 		}
 	}
@@ -398,6 +399,8 @@ public class Robot extends IterativeRobot {
 		// scissor lift right joystick y override
 		if (Math.abs(operator.getRawAxis(5)) > 0.3) {
 			leftScissor.set(ControlMode.PercentOutput, operator.getRawAxis(5));
+		} else {
+			leftScissor.set(ControlMode.PercentOutput, 0);
 		}
 
 		/*
@@ -405,27 +408,17 @@ public class Robot extends IterativeRobot {
 		 * switch level POV 180: scale (highest 6ft) POV 270: climb
 		 */
 		if (operator.getPOV() == 0) {
-			level = 0;
+			leftScissor.set(ControlMode.Position, 0);
 			SmartDashboard.putString("Scissor Lift", "Ground Level");
 		} else if (operator.getPOV() == 90) {
-			level = 1;
+			leftScissor.set(ControlMode.Position, SWITCH);
 			SmartDashboard.putString("Scissor Lift", "Switch Level");
 		} else if (operator.getPOV() == 180) {
-			level = 2;
+			leftScissor.set(ControlMode.Position, SCALE);
 			SmartDashboard.putString("Scissor Lift", "Scale Level");
 		} else if (operator.getPOV() == 270) {
-			level = 3;
+			leftScissor.set(ControlMode.Position, CLIMB);
 			SmartDashboard.putString("Scissor Lift", "Climb Level");
-		}
-
-		if (level == 0) {
-			leftScissor.set(ControlMode.Position, 0);
-		} else if (level == 1) {
-			leftScissor.set(ControlMode.Position, SWITCH * 4096.0);
-		} else if (level == 2) {
-			leftScissor.set(ControlMode.Position, SCALE * 4096.0);
-		} else if (level == 3) {
-			leftScissor.set(ControlMode.Position, CLIMB * 4096.0);
 		}
 	}
 
