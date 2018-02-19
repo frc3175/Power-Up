@@ -38,7 +38,7 @@ public class Robot extends IterativeRobot {
 	/** SET THIS BEFORE MATCH! **/
 	public String goal = "switch";
 
-	// arcade drive speeds
+	// arcade drive speedsc
 	private static int gear = 1;
 
 	private Timer runTime = new Timer();
@@ -103,7 +103,7 @@ public class Robot extends IterativeRobot {
 		intakeArm = new DoubleSolenoid(4, 5);
 		// deploy = new Solenoid(6);
 		compressor = new Compressor(0);
-		compressor.setClosedLoopControl(true);
+		compressor.setClosedLoopControl(false);
 
 		CameraServer.getInstance().startAutomaticCapture();
 
@@ -258,16 +258,16 @@ public class Robot extends IterativeRobot {
 		SmartDashboard.putBoolean("Compressor enabled", compressor.enabled());
 		SmartDashboard.putBoolean("Pressure Switch On", compressor.getPressureSwitchValue());
 		// drive train
-		if (gear == 1) {
+		if (gear == 4) {
 			SmartDashboard.putString("Gear", "40% Speed");
 		} else if (gear == 2) {
 			SmartDashboard.putString("Gear", "60% Speed");
 		} else if (gear == 3) {
 			SmartDashboard.putString("Gear", "80% Speed");
-		} else if (gear == 4) {
+		} else if (gear == 1) {
 			SmartDashboard.putString("Gear", "100% Speed");
 		} else if (gear == 5) {
-			SmartDashboard.putString("Gear", "20% Speed");
+			SmartDashboard.putString("Gear", "30% Speed");
 		}
 		// runtime
 		SmartDashboard.putString("Run time", Double.toString(runTime.get()));
@@ -299,7 +299,7 @@ public class Robot extends IterativeRobot {
 			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.8, turnSpeed * 0.8);
 			gear = 2;
 		} else if (driver.getXButton()) {
-			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.2, turnSpeed * 0.2);
+			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.3, turnSpeed * 0.3);
 			gear = 5;
 		}
 	}
@@ -336,8 +336,8 @@ public class Robot extends IterativeRobot {
 	 */
 	private void scissorControl() {
 		// scissor lift right joystick y override
-		if (Math.abs(operator.getRawAxis(5)) > 0.3 && leftScissor.getSelectedSensorPosition(0) >= MAX_HEIGHT) {
-			leftScissor.set(ControlMode.PercentOutput, operator.getRawAxis(5));
+		if (Math.abs(operator.getRawAxis(5) * 0.8) > 0.3 && leftScissor.getSelectedSensorPosition(0) >= MAX_HEIGHT) {
+			leftScissor.set(ControlMode.PercentOutput, operator.getRawAxis(5) * 0.8);
 		} else {
 			leftScissor.set(ControlMode.PercentOutput, 0);
 		}
@@ -357,6 +357,7 @@ public class Robot extends IterativeRobot {
 			SmartDashboard.putString("Scissor Lift", "Scale Level");
 		} else if (operator.getPOV() == 270) {
 			leftScissor.set(ControlMode.Position, CLIMB);
+			
 			SmartDashboard.putString("Scissor Lift", "Climb Level");
 		}
 	}
