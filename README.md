@@ -40,7 +40,7 @@ Joysticks
 DPAD
 --
 (POV 0 Degrees) - Ground Level
-(POV 90 Degrees) - Switch Level
-(POV 180 Degrees) - Scale Level
-(POV 270 Degrees) - Climb Level
+>(POV 90 Degrees) - Switch Level
+>>(POV 180 Degrees) - Scale Level
+>>>(POV 270 Degrees) - Climb Level
 
