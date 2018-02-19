@@ -20,17 +20,17 @@ Operator
 --
 A and B Button
 --
-(A Button) - Spit out Block
+(A Button) - Spit out Block<br />
 (B Button) - Intake for Block
 
 X and Y Button
 --
-(X Button) - Close Arm
+(X Button) - Close Arm<br />
 (Y Button) - Open Arm
 
 Start and Back Button
 --
-(Start Button) - Winch up
+(Start Button) - Winch up<br />
 (Back Button) - Winch Back
 
 Joysticks
@@ -39,8 +39,8 @@ Joysticks
 
 DPAD
 --
-(POV 0 Degrees) - Ground Level
->(POV 90 Degrees) - Switch Level
->>(POV 180 Degrees) - Scale Level
->>>(POV 270 Degrees) - Climb Level
+(POV 0 Degrees) - Ground Level<br />
+(POV 90 Degrees) - Switch Level<br />
+(POV 180 Degrees) - Scale Level<br />
+(POV 270 Degrees) - Climb Level<br />
 
