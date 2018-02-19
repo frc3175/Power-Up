@@ -18,17 +18,27 @@ Phoenix Framework [Direct Download](http://www.ctr-electronics.com/downloads/ins
 ## Controls
 Operator
 --
+A and B Button
+--
 (A Button) - Spit out Block
 (B Button) - Intake for Block
 
+X and Y Button
+--
 (X Button) - Close Arm
 (Y Button) - Open Arm
 
+Start and Back Button
+--
 (Start Button) - Winch up
 (Back Button) - Winch Back
 
+Joysticks
+--
 (Right Joystick) Y axis - Scissor Lift
 
+DPAD
+--
 (POV 0 Degrees) - Ground Level
 (POV 90 Degrees) - Switch Level
 (POV 180 Degrees) - Scale Level
