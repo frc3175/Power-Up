@@ -12,6 +12,24 @@ Then create a new Java Robot Project and select Iterative Robot. Paste the files
 * [Tony Pan](https://github.com/tonypan2000).
 
 ## API
-Phoenix Framework [Direct Download](http://www.ctr-electronics.com/downloads/installers/CTRE%20Phoenix%20Framework%20v5.2.1.1.zip)
+Phoenix Framework [Direct Download](http://www.ctr-electronics.com/downloads/installers/CTRE%20Phoenix%20Framework%20## APIv5.2.1.1.zip)
 >WpiLib [Website](https://wpilib.screenstepslive.com/s/currentCS/m/getting_started/l/599679-installing-eclipse-c-java)
 
+## Controls
+#Operator
+--------------------------
+(A Button) - Spit out Block
+(B Button) - Intake for Block
+---------------------------
+(X Button) - Close Arm
+(Y Button) - Open Arm
+--------------------------
+(Start Button) - Winch up
+(Back Button) - Winch Back
+--------------------------
+(Right Joystick) Y axis - Scissor Lift
+--------------------------
+(POV 0 Degrees) - Ground Level
+(POV 90 Degrees) - Switch Level
+(POV 180 Degrees) - Scale Level
+(POV 270 Degrees) - Climb Level
