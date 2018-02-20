@@ -18,7 +18,8 @@ Phoenix Framework [Direct Download](http://www.ctr-electronics.com/downloads/ins
 ## Controls
 Operator
 --
-The oeprator is in control of the; standard wheel intake system with the A and B buttons, the pnematics arm on the scissor lift with X and Y, The winch with Start and Back, the manual Scissor Lift, and the Scissor lift specific levels with the DPAD.
+The operator is in control of the; standard wheel intake system with the A and B buttons, the pnematics arm on the scissor lift with X and Y, The winch with Start and Back, the manual Scissor Lift, and the Scissor lift specific levels with the DPAD.__
+
 A and B Button
 --
 (A Button) - Spit out Block<br />
