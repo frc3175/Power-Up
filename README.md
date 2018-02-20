@@ -46,3 +46,15 @@ DPAD
 (POV 180 Degrees) - Scale Level<br />
 (POV 270 Degrees) - Climb Level<br />
 
+Driver
+--
+The drivers job this year is fairly ordinary with their usual job. However this year there will be "gears" controlled by the power output with A B X and Y.
+
+The Gears
+--
+Must hold down to use
+(No Button held) - 100% speed
+(A Button) - 80% initial speed
+(B Button) - 60% initial speed
+(Y Button) - 40% initial speed
+(X Button) - 30% initial speed
