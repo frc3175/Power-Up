@@ -58,3 +58,6 @@ Must hold down to use<br />
 (B Button) - 60% initial speed<br />
 (Y Button) - 40% initial speed<br />
 (X Button) - 30% initial speed
+
+Version {Alpha 0.17.52}
+--
