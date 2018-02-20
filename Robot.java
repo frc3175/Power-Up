@@ -38,7 +38,7 @@ public class Robot extends IterativeRobot {
 	/** SET THIS BEFORE MATCH! **/
 	public String goal = "switch";
 
-	// arcade drive speedsc
+	// arcade drive speeds
 	private static int gear = 1;
 
 	private Timer runTime = new Timer();
@@ -56,11 +56,11 @@ public class Robot extends IterativeRobot {
 	private Victor winch;
 	private TalonSRX leftScissor;
 
-	private Victor intake = new Victor(3);;
+	private Victor intake;
+	private Victor deploy;
 
 	// pneumatics
 	private DoubleSolenoid intakeArm;
-	// private Solenoid deploy;
 	private Compressor compressor;
 
 	// Alliance color
@@ -84,6 +84,9 @@ public class Robot extends IterativeRobot {
 		rightDrive = new Victor(1);
 		driveTrain = new DifferentialDrive(leftDrive, rightDrive);
 
+		intake = new Victor(3);
+		deploy = new Victor(4);
+
 		winch = new Victor(2);
 		leftScissor = new TalonSRX(5);
 		leftScissor.configSelectedFeedbackSensor(com.ctre.phoenix.motorcontrol.FeedbackDevice.CTRE_MagEncoder_Relative,
@@ -95,15 +98,14 @@ public class Robot extends IterativeRobot {
 		leftScissor.config_kI(0, 0.0, 10);
 		leftScissor.config_kD(0, 0.0, 10);
 		/* set the peak and nominal outputs, 12V means full */
-		leftScissor.configNominalOutputForward(0, 10);
-		leftScissor.configNominalOutputReverse(0, 10);
-		leftScissor.configPeakOutputForward(2, 10);
-		leftScissor.configPeakOutputReverse(-1, 10);
+		// leftScissor.configNominalOutputForward(0, 10);
+		// leftScissor.configNominalOutputReverse(0, 10);
+		// leftScissor.configPeakOutputForward(2, 10);
+		// leftScissor.configPeakOutputReverse(-1, 10);
 
 		intakeArm = new DoubleSolenoid(4, 5);
-		// deploy = new Solenoid(6);
 		compressor = new Compressor(0);
-		compressor.setClosedLoopControl(false);
+		compressor.setClosedLoopControl(true);
 
 		CameraServer.getInstance().startAutomaticCapture();
 
@@ -146,7 +148,6 @@ public class Robot extends IterativeRobot {
 					} else if (runTime.get() < 4.0) {
 						intakeArm.set(DoubleSolenoid.Value.kForward); // release block
 					}
-
 				} else if (field.charAt(0) == 'R' && goal.equals("switch")) {
 					// switch on the right Goes the long way around the switch (avoid collisions)
 					if (runTime.get() < 1.3) {
@@ -233,18 +234,11 @@ public class Robot extends IterativeRobot {
 
 		telemetry();
 		drive();
+		intakeControl();
 		armControl();
 		winchControl();
 		scissorControl();
-
-		// Operator Stick Intakes
-		if (operator.getAButton()) {
-			intake.set(1); // A spit out
-		} else if (operator.getBButton()) {
-			intake.set(-0.5); // B intake
-		} else {
-			intake.set(0); // stop motor
-		}
+		deployArm();
 
 	}
 
@@ -258,16 +252,16 @@ public class Robot extends IterativeRobot {
 		SmartDashboard.putBoolean("Compressor enabled", compressor.enabled());
 		SmartDashboard.putBoolean("Pressure Switch On", compressor.getPressureSwitchValue());
 		// drive train
-		if (gear == 4) {
-			SmartDashboard.putString("Gear", "40% Speed");
-		} else if (gear == 2) {
-			SmartDashboard.putString("Gear", "60% Speed");
-		} else if (gear == 3) {
-			SmartDashboard.putString("Gear", "80% Speed");
-		} else if (gear == 1) {
-			SmartDashboard.putString("Gear", "100% Speed");
-		} else if (gear == 5) {
+		if (gear == 1) {
 			SmartDashboard.putString("Gear", "30% Speed");
+		} else if (gear == 2) {
+			SmartDashboard.putString("Gear", "40% Speed");
+		} else if (gear == 3) {
+			SmartDashboard.putString("Gear", "60% Speed");
+		} else if (gear == 4) {
+			SmartDashboard.putString("Gear", "80% Speed");
+		} else if (gear == 5) {
+			SmartDashboard.putString("Gear", "100% Speed");
 		}
 		// runtime
 		SmartDashboard.putString("Run time", Double.toString(runTime.get()));
@@ -284,12 +278,12 @@ public class Robot extends IterativeRobot {
 			turnSpeed = 0;
 		}
 		driveTrain.arcadeDrive(driver.getRawAxis(1), turnSpeed);
-		gear = 1;
+		gear = 5;
 		// Gears of the drive train left joystick
 		if (driver.getYButton()) {
 			// gear 1 40% speed
 			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.4, turnSpeed * 0.4);
-			gear = 4;
+			gear = 2;
 		} else if (driver.getBButton()) { // Listens for A button
 			// While A button is held it executes the normal code at 80%
 			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.6, turnSpeed * 0.6);
@@ -297,10 +291,21 @@ public class Robot extends IterativeRobot {
 		} else if (driver.getAButton()) {
 			// While B button is held it executes the normal code at 60%
 			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.8, turnSpeed * 0.8);
-			gear = 2;
+			gear = 4;
 		} else if (driver.getXButton()) {
 			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.3, turnSpeed * 0.3);
-			gear = 5;
+			gear = 1;
+		}
+	}
+
+	private void intakeControl() {
+		// Operator Stick Intakes
+		if (operator.getAButton()) {
+			intake.set(1); // A spit out
+		} else if (operator.getBButton()) {
+			intake.set(-0.5); // B intake
+		} else {
+			intake.set(0); // stop motor
 		}
 	}
 
@@ -336,7 +341,7 @@ public class Robot extends IterativeRobot {
 	 */
 	private void scissorControl() {
 		// scissor lift right joystick y override
-		if (Math.abs(operator.getRawAxis(5) * 0.8) > 0.3 && leftScissor.getSelectedSensorPosition(0) >= MAX_HEIGHT) {
+		if (Math.abs(operator.getRawAxis(5)) > 0.3 && leftScissor.getSelectedSensorPosition(0) >= MAX_HEIGHT) {
 			leftScissor.set(ControlMode.PercentOutput, operator.getRawAxis(5) * 0.8);
 		} else {
 			leftScissor.set(ControlMode.PercentOutput, 0);
@@ -357,9 +362,13 @@ public class Robot extends IterativeRobot {
 			SmartDashboard.putString("Scissor Lift", "Scale Level");
 		} else if (operator.getPOV() == 270) {
 			leftScissor.set(ControlMode.Position, CLIMB);
-			
 			SmartDashboard.putString("Scissor Lift", "Climb Level");
 		}
+	}
+
+	// right joystick up down
+	private void deployArm() {
+		deploy.set(-operator.getRawAxis(1) * 0.6);
 	}
 
 }
