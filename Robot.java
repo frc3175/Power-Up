@@ -57,6 +57,7 @@ public class Robot extends IterativeRobot {
 	private TalonSRX leftScissor;
 
 	private Victor intake;
+	private Victor intakeLift;
 	private Victor deploy;
 
 	// pneumatics
@@ -85,6 +86,7 @@ public class Robot extends IterativeRobot {
 		driveTrain = new DifferentialDrive(leftDrive, rightDrive);
 
 		intake = new Victor(3);
+		intakeLift = new Victor(5);
 		deploy = new Victor(4);
 
 		winch = new Victor(2);
@@ -112,6 +114,7 @@ public class Robot extends IterativeRobot {
 		alliance = DriverStation.getInstance().getAlliance();
 		station = DriverStation.getInstance().getLocation();
 		SmartDashboard.putString("Alliance", alliance + Integer.toString(station));
+
 		SmartDashboard.putString("Robot Init", "Initialized!");
 	}
 
@@ -136,11 +139,21 @@ public class Robot extends IterativeRobot {
 	 */
 	@Override
 	public void autonomousPeriodic() {
-		if (!goal.equals("cross")) {
+		if (runTime.get() < 5) {
+			intakeLift.set(-0.4);
+		} else {
+			intakeLift.set(0);
+		}
+		// if (runTime.get() < 0.2) {
+		// deploy.set(-0.5);
+		// } else if (runTime.get() < 0.5) {
+		// deploy.set(0);
+		// }
+		if (goal.equals("cross")) {
 			switch (station) {
 			case 1: // alliance station 1 (left)
 				if (field.charAt(0) == 'L' && goal == "switch") {
-					// switch on the left Goes straight to the switch and puts cube in
+					// go straight to the switch and put the cube in
 					if (runTime.get() < 1.3) {
 						driveTrain.arcadeDrive(0.75, 0); // Goes forward (1.3 seconds)
 					} else if (runTime.get() < 3.3) {
@@ -231,7 +244,6 @@ public class Robot extends IterativeRobot {
 	 */
 	@Override
 	public void teleopPeriodic() {
-
 		telemetry();
 		drive();
 		intakeControl();
@@ -239,7 +251,7 @@ public class Robot extends IterativeRobot {
 		winchControl();
 		scissorControl();
 		deployArm();
-
+		intakeLift.set(operator.getRawAxis(3));
 	}
 
 	/*
