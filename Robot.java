@@ -36,7 +36,7 @@ public class Robot extends IterativeRobot {
 	private static final double MAX_HEIGHT = -18.5 * 4096;
 
 	/** SET THIS BEFORE MATCH! **/
-	public String goal = "switch";
+	public String goal = "scale";
 
 	// arcade drive speeds
 	private static int gear = 1;
@@ -139,62 +139,154 @@ public class Robot extends IterativeRobot {
 	 */
 	@Override
 	public void autonomousPeriodic() {
-		if (runTime.get() < 5) {
-			intakeLift.set(-0.4);
-		} else {
-			intakeLift.set(0);
-		}
-		// if (runTime.get() < 0.2) {
-		// deploy.set(-0.5);
-		// } else if (runTime.get() < 0.5) {
-		// deploy.set(0);
+		// keeps the wheel intake up
+		// if (runTime.get() < 5) {
+		// intakeLift.set(-0.4);
+		// } else {
+		// intakeLift.set(0);
 		// }
-		if (goal.equals("cross")) {
+		// flip down the intake arms
+		if (runTime.get() < 0.2) {
+			deploy.set(-0.5);
+		} else if (runTime.get() < 0.5) {
+			deploy.set(0);
+		}
+		if (!goal.equals("cross") && runTime.get() > 0.5) {
 			switch (station) {
 			case 1: // alliance station 1 (left)
 				if (field.charAt(0) == 'L' && goal == "switch") {
 					// go straight to the switch and put the cube in
-					if (runTime.get() < 1.3) {
+					if (runTime.get() < 1.8) {
 						driveTrain.arcadeDrive(0.75, 0); // Goes forward (1.3 seconds)
-					} else if (runTime.get() < 3.3) {
+					} else if (runTime.get() < 3.8) {
 						leftScissor.set(ControlMode.Position, SWITCH); // scissor lift raises to switch level
-					} else if (runTime.get() < 4.0) {
+					} else if (runTime.get() < 4.5) {
 						intakeArm.set(DoubleSolenoid.Value.kForward); // release block
 					}
 				} else if (field.charAt(0) == 'R' && goal.equals("switch")) {
 					// switch on the right Goes the long way around the switch (avoid collisions)
-					if (runTime.get() < 1.3) {
-						driveTrain.arcadeDrive(0.75, 0); // Goes forward (1.3 seconds)
-					} else if (runTime.get() < 1.8) {
+					if (runTime.get() < 2.6) {
+						driveTrain.arcadeDrive(0.75, 0); // Goes forward for 2.1 seconds
+					} else if (runTime.get() < 2.9) {
 						// Turns right (0.3 seconds)
 						leftDrive.set(0.5);
-						rightDrive.set(-0.5);
-					} else if (runTime.get() < 2.3) {
-						driveTrain.arcadeDrive(0.5, 0); // Goes forward (0.7 seconds)
-					} else if (runTime.get() < 3.3) {
+						rightDrive.set(0.5);
+					} else if (runTime.get() < 4.9) {
+						driveTrain.arcadeDrive(0.5, 0); // Goes forward for 2 seconds
+					} else if (runTime.get() < 5.2) {
+						// Turns right (0.3 seconds)
+						leftDrive.set(0.5);
+						rightDrive.set(0.5);
+					} else if (runTime.get() < 5.5) {
+						driveTrain.arcadeDrive(0.5, 0); // Goes forward for 0.3 seconds
+					} else if (runTime.get() < 5.8) {
+						// Turns right (0.3 seconds)
+						leftDrive.set(0.5);
+						rightDrive.set(0.5);
+					} else if (runTime.get() < 7.8) {
 						leftScissor.set(ControlMode.Position, SWITCH);
-					} else if (runTime.get() < 4.2) {
+					} else if (runTime.get() < 8.0) {
 						intakeArm.set(DoubleSolenoid.Value.kForward);
 					}
-
 				} else if (field.charAt(1) == 'L' && goal.equals("scale")) {
 					// scale on the left drive forward lift and drop at the scale
-
+					// go straight to the scale and put the cube in
+					if (runTime.get() < 2.5) {
+						driveTrain.arcadeDrive(1, 0); // Goes forward for 2 seconds at full speed
+					} else if (runTime.get() < 2.8) {
+						// Turns right (0.3 seconds)
+						leftDrive.set(0.5);
+						rightDrive.set(0.5);
+					} else if (runTime.get() < 5.8) {
+						leftScissor.set(ControlMode.Position, SWITCH); // scissor lift raises to switch level
+					} else if (runTime.get() < 6.0) {
+						intakeArm.set(DoubleSolenoid.Value.kForward); // release block
+					}
 				} else if (field.charAt(1) == 'R' && goal.equals("scale")) {
 					// scale on the right drive forward turn right
-
+					if (runTime.get() < 2.6) {
+						driveTrain.arcadeDrive(1, 0); // Goes forward for 2 seconds
+					} else if (runTime.get() < 2.9) {
+						// Turns right (0.3 seconds)
+						leftDrive.set(0.5);
+						rightDrive.set(0.5);
+					} else if (runTime.get() < 4.9) {
+						driveTrain.arcadeDrive(0.5, 0); // Goes forward for 2 seconds
+					} else if (runTime.get() < 5.2) {
+						// Turns left (0.3 seconds)
+						leftDrive.set(-0.5);
+						rightDrive.set(-0.5);
+					} else if (runTime.get() < 7.2) {
+						leftScissor.set(ControlMode.Position, SWITCH);
+					} else if (runTime.get() < 7.5) {
+						intakeArm.set(DoubleSolenoid.Value.kForward);
+					}
 				}
 				break;
 			case 2: // alliance station 2 (middle)
 				if (field.charAt(0) == 'L' && goal.equals("switch")) {
 					// switch on the left turns left and put the block
-
+					if (runTime.get() < 1.5) {
+						driveTrain.arcadeDrive(0.75, 0); // Goes forward for 1 second
+					} else if (runTime.get() < 1.8) {
+						// Turns left (0.3 seconds)
+						leftDrive.set(-0.5);
+						rightDrive.set(-0.5);
+					} else if (runTime.get() < 2.3) {
+						driveTrain.arcadeDrive(0.75, 0); // Goes forward for 0.5 second
+					} else if (runTime.get() < 2.6) {
+						// Turns right (0.3 seconds)
+						leftDrive.set(0.5);
+						rightDrive.set(0.5);
+					} else if (runTime.get() < 3.2) {
+						driveTrain.arcadeDrive(0.5, 0); // Goes forward for 0.6 seconds
+					} else if (runTime.get() < 5.2) {
+						leftScissor.set(ControlMode.Position, SWITCH); // scissor lift raises to switch level
+					} else if (runTime.get() < 5.5) {
+						intakeArm.set(DoubleSolenoid.Value.kForward); // release block
+					}
 				} else if (field.charAt(0) == 'R' && goal.equals("switch")) {
 					// switch on the right turns right and put the block
-
+					if (runTime.get() < 1.5) {
+						driveTrain.arcadeDrive(0.75, 0); // Goes forward for 1 second
+					} else if (runTime.get() < 1.8) {
+						// Turns right (0.3 seconds)
+						leftDrive.set(0.5);
+						rightDrive.set(0.5);
+					} else if (runTime.get() < 2.3) {
+						driveTrain.arcadeDrive(0.75, 0); // Goes forward for 0.5 second
+					} else if (runTime.get() < 2.6) {
+						// Turns left (0.3 seconds)
+						leftDrive.set(-0.5);
+						rightDrive.set(-0.5);
+					} else if (runTime.get() < 3.2) {
+						driveTrain.arcadeDrive(0.5, 0); // Goes forward for 0.6 seconds
+					} else if (runTime.get() < 5.2) {
+						leftScissor.set(ControlMode.Position, SWITCH); // scissor lift raises to switch level
+					} else if (runTime.get() < 5.5) {
+						intakeArm.set(DoubleSolenoid.Value.kForward); // release block
+					}
 				} else if (field.charAt(1) == 'L' && goal.equals("scale")) {
 					// scale on the left turn left and go the long way around the switch
-
+					if (runTime.get() < 1.5) {
+						driveTrain.arcadeDrive(0.75, 0); // Goes forward for 1 second
+					} else if (runTime.get() < 1.8) {
+						// Turns left (0.3 seconds)
+						leftDrive.set(-0.5);
+						rightDrive.set(-0.5);
+					} else if (runTime.get() < 2.5) {
+						driveTrain.arcadeDrive(0.75, 0); // Goes forward for 0.7 second
+					} else if (runTime.get() < 2.9) {
+						// Turns right (0.3 seconds)
+						leftDrive.set(0.5);
+						rightDrive.set(0.5);
+					} else if (runTime.get() < 3.5) {
+						driveTrain.arcadeDrive(0.5, 0); // Goes forward for 0.6 seconds
+					} else if (runTime.get() < 5.5) {
+						leftScissor.set(ControlMode.Position, SWITCH); // scissor lift raises to switch level
+					} else if (runTime.get() < 6.0) {
+						intakeArm.set(DoubleSolenoid.Value.kForward); // release block
+					}
 				} else if (field.charAt(1) == 'R' && goal.equals("scale")) {
 					// scale on the right turn right and go the long way around the switch
 
