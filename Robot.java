@@ -36,7 +36,8 @@ public class Robot extends IterativeRobot {
 	private static final double MAX_HEIGHT = -18.5 * 4096;
 
 	/** SET THIS BEFORE MATCH! **/
-	public String goal = "scale";
+	private String goal = "scale";
+	private int location = 1;
 
 	// arcade drive speeds
 	private static int gear = 1;
@@ -111,10 +112,6 @@ public class Robot extends IterativeRobot {
 
 		CameraServer.getInstance().startAutomaticCapture();
 
-		alliance = DriverStation.getInstance().getAlliance();
-		station = DriverStation.getInstance().getLocation();
-		SmartDashboard.putString("Alliance", alliance + Integer.toString(station));
-
 		SmartDashboard.putString("Robot Init", "Initialized!");
 	}
 
@@ -127,10 +124,13 @@ public class Robot extends IterativeRobot {
 
 		leftScissor.setSelectedSensorPosition(0, 0, 10);
 		field = DriverStation.getInstance().getGameSpecificMessage();
+		alliance = DriverStation.getInstance().getAlliance();
+		station = DriverStation.getInstance().getLocation();
 
 		runTime.reset();
 		runTime.start();
 
+		SmartDashboard.putString("Alliance", alliance + Integer.toString(station));
 		SmartDashboard.putString("Auton Init", "Initialized!");
 	}
 
@@ -152,7 +152,7 @@ public class Robot extends IterativeRobot {
 			deploy.set(0);
 		}
 		if (!goal.equals("cross") && runTime.get() > 0.5) {
-			switch (station) {
+			switch (location) {
 			case 1: // alliance station 1 (left)
 				if (field.charAt(0) == 'L' && goal == "switch") {
 					// go straight to the switch and put the cube in
