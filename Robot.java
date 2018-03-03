@@ -572,12 +572,12 @@ public class Robot extends IterativeRobot {
 			} else if (tankDriver.getRawButton(6)) {
 				// right bumper button 60% speed
 				if (Math.abs(tankDriver.getRawAxis(2) - tankDriver.getRawAxis(5)) > 0.2) {
-					driveTrain.tankDrive(tankDriver.getRawAxis(2) * 0.6, tankDriver.getRawAxis(5) * 0.6);
+					driveTrain.tankDrive(tankDriver.getRawAxis(2) * 0.6, tankDriver.getRawAxis(5) * 0.4);
 				} else {
-					driveTrain.tankDrive(0.6 * Math.max(tankDriver.getRawAxis(2), tankDriver.getRawAxis(5)),
-							0.6 * Math.max(tankDriver.getRawAxis(2), tankDriver.getRawAxis(5)));
+					driveTrain.tankDrive(0.4 * Math.max(tankDriver.getRawAxis(2), tankDriver.getRawAxis(5)),
+							0.4 * Math.max(tankDriver.getRawAxis(2), tankDriver.getRawAxis(5)));
 				}
-				gear = 3;
+				gear = 2;
 			}
 		}
 	}
