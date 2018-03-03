@@ -13,6 +13,7 @@ import edu.wpi.first.wpilibj.DoubleSolenoid;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.IterativeRobot;
+import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.Victor;
 import edu.wpi.first.wpilibj.XboxController;
@@ -30,14 +31,15 @@ import com.ctre.phoenix.motorcontrol.can.TalonSRX;
 public class Robot extends IterativeRobot {
 
 	// scissor lift preset heights
-	private static final double SWITCH = -6.0 * 4096;
-	private static final double SCALE = -15.0 * 4096;
-	private static final double CLIMB = -17.0 * 4096;
-	private static final double MAX_HEIGHT = -18.5 * 4096;
+	private static final double SWITCH = -10.5 * 4096;
+	private static final double SCALE = -35.0 * 4096;
+	private static final double CLIMB = -40.0 * 4096;
+	private static final double MAX_HEIGHT = -41.0 * 4096;
 
 	/** SET THIS BEFORE MATCH! **/
-	private String goal = "scale";
-	private int location = 1;
+	private static final String GOAL = "scale";
+	private static final int LOCATION = 1;
+	private static final String DRIVE_MODE = "arcade";
 
 	// arcade drive speeds
 	private static int gear = 1;
@@ -46,6 +48,7 @@ public class Robot extends IterativeRobot {
 
 	// Joystick
 	private XboxController driver;
+	private Joystick tankDriver;
 	private XboxController operator;
 
 	// Drive train
@@ -79,7 +82,11 @@ public class Robot extends IterativeRobot {
 	public void robotInit() {
 		SmartDashboard.putString("Robot Init", "Initializing...");
 
-		driver = new XboxController(0);
+		if (DRIVE_MODE.equals("arcade")) {
+			driver = new XboxController(0);
+		} else {
+			tankDriver = new Joystick(0);
+		}
 		operator = new XboxController(1);
 
 		leftDrive = new Victor(0);
@@ -151,56 +158,56 @@ public class Robot extends IterativeRobot {
 		} else if (runTime.get() < 0.5) {
 			deploy.set(0);
 		}
-		if (!goal.equals("cross") && runTime.get() > 0.5) {
-			switch (location) {
+		if (!GOAL.equals("cross") && runTime.get() > 0.5) {
+			switch (LOCATION) {
 			case 1: // alliance station 1 (left)
-				if (field.charAt(0) == 'L' && goal == "switch") {
+				if (field.charAt(0) == 'L' && GOAL.equals("switch")) {
 					// go straight to the switch and put the cube in
 					straightSwitch();
-				} else if (field.charAt(0) == 'R' && goal.equals("switch")) {
+				} else if (field.charAt(0) == 'R' && GOAL.equals("switch")) {
 					// switch on the right Goes the long way around the switch (avoid collisions)
 					rightSwitch1();
-				} else if (field.charAt(1) == 'L' && goal.equals("scale")) {
+				} else if (field.charAt(1) == 'L' && GOAL.equals("scale")) {
 					// scale on the left drive forward lift and drop at the scale
 					// go straight to the scale and put the cube in
 					leftScale1();
-				} else if (field.charAt(1) == 'R' && goal.equals("scale")) {
+				} else if (field.charAt(1) == 'R' && GOAL.equals("scale")) {
 					// scale on the right drive forward turn right
 					rightScale1();
 				}
 				break;
 			case 2: // alliance station 2 (middle)
-				if (field.charAt(0) == 'L' && goal.equals("switch")) {
+				if (field.charAt(0) == 'L' && GOAL.equals("switch")) {
 					// switch on the left turns left and put the block
 					leftSwitch2();
-				} else if (field.charAt(0) == 'R' && goal.equals("switch")) {
+				} else if (field.charAt(0) == 'R' && GOAL.equals("switch")) {
 					// switch on the right turns right and put the block
 					rightSwitch2();
-				} else if (field.charAt(1) == 'L' && goal.equals("scale")) {
+				} else if (field.charAt(1) == 'L' && GOAL.equals("scale")) {
 					// scale on the left turn left and go the long way around the switch
 					leftScale2();
-				} else if (field.charAt(1) == 'R' && goal.equals("scale")) {
+				} else if (field.charAt(1) == 'R' && GOAL.equals("scale")) {
 					// scale on the right turn right and go the long way around the switch
 					rightScale2();
 				}
 				break;
 			case 3: // alliance station 3 (right)
-				if (field.charAt(0) == 'L' && goal.equals("switch")) {
+				if (field.charAt(0) == 'L' && GOAL.equals("switch")) {
 					// switch on the left Goes the long way around the switch (avoid collisions)
 					leftSwitch3();
-				} else if (field.charAt(0) == 'R' && goal.equals("switch")) {
+				} else if (field.charAt(0) == 'R' && GOAL.equals("switch")) {
 					// switch on the right Goes straight to the switch and puts cube in
 					straightSwitch();
-				} else if (field.charAt(1) == 'L' && goal.equals("scale")) {
+				} else if (field.charAt(1) == 'L' && GOAL.equals("scale")) {
 					// scale on the left go forward turn left
 					leftScale3();
-				} else if (field.charAt(1) == 'R' && goal.equals("scale")) {
+				} else if (field.charAt(1) == 'R' && GOAL.equals("scale")) {
 					// scale on the right go forward to the scale
 					rightScale3();
 				}
 				break;
 			}
-		} else if (goal.equals("cross") && runTime.get() > 0.5) {
+		} else if (GOAL.equals("cross") && runTime.get() > 0.5) {
 			// cross the auton line
 			if (runTime.get() < 1.8) {
 				driveTrain.arcadeDrive(0.75, 0);
@@ -235,7 +242,7 @@ public class Robot extends IterativeRobot {
 		winchControl();
 		scissorControl();
 		deployArm();
-		intakeLift.set(operator.getRawAxis(3));
+		intakeLiftControl();
 	}
 
 	/*
@@ -245,9 +252,9 @@ public class Robot extends IterativeRobot {
 	private void straightSwitch() {
 		if (runTime.get() < 1.8) {
 			driveTrain.arcadeDrive(0.75, 0); // Goes forward for 1.3 seconds
-		} else if (runTime.get() < 3.8) {
+		} else if (runTime.get() < 4.8) {
 			leftScissor.set(ControlMode.Position, SWITCH); // scissor lift raises to switch level
-		} else if (runTime.get() < 4.5) {
+		} else if (runTime.get() < 5.0) {
 			intakeArm.set(DoubleSolenoid.Value.kForward); // release block
 		}
 	}
@@ -274,9 +281,9 @@ public class Robot extends IterativeRobot {
 			// Turns right (0.3 seconds)
 			leftDrive.set(0.5);
 			rightDrive.set(0.5);
-		} else if (runTime.get() < 7.8) {
+		} else if (runTime.get() < 8.8) {
 			leftScissor.set(ControlMode.Position, SWITCH);
-		} else if (runTime.get() < 8.0) {
+		} else if (runTime.get() < 9.0) {
 			intakeArm.set(DoubleSolenoid.Value.kForward);
 		}
 	}
@@ -291,9 +298,9 @@ public class Robot extends IterativeRobot {
 			// Turns right (0.3 seconds)
 			leftDrive.set(0.5);
 			rightDrive.set(0.5);
-		} else if (runTime.get() < 6.4) {
+		} else if (runTime.get() < 9.4) {
 			leftScissor.set(ControlMode.Position, SWITCH); // scissor lift raises to switch level
-		} else if (runTime.get() < 6.6) {
+		} else if (runTime.get() < 9.6) {
 			intakeArm.set(DoubleSolenoid.Value.kForward); // release block
 		}
 	}
@@ -314,9 +321,9 @@ public class Robot extends IterativeRobot {
 			// Turns left (0.3 seconds)
 			leftDrive.set(-0.5);
 			rightDrive.set(-0.5);
-		} else if (runTime.get() < 8.7) {
+		} else if (runTime.get() < 11.7) {
 			leftScissor.set(ControlMode.Position, SWITCH);
-		} else if (runTime.get() < 9.0) {
+		} else if (runTime.get() < 11.9) {
 			intakeArm.set(DoubleSolenoid.Value.kForward);
 		}
 	}
@@ -339,9 +346,9 @@ public class Robot extends IterativeRobot {
 			rightDrive.set(0.5);
 		} else if (runTime.get() < 3.2) {
 			driveTrain.arcadeDrive(0.5, 0); // Goes forward for 0.6 seconds
-		} else if (runTime.get() < 5.2) {
+		} else if (runTime.get() < 6.2) {
 			leftScissor.set(ControlMode.Position, SWITCH); // scissor lift raises to switch level
-		} else if (runTime.get() < 5.5) {
+		} else if (runTime.get() < 6.5) {
 			intakeArm.set(DoubleSolenoid.Value.kForward); // release block
 		}
 	}
@@ -364,9 +371,9 @@ public class Robot extends IterativeRobot {
 			rightDrive.set(-0.5);
 		} else if (runTime.get() < 3.2) {
 			driveTrain.arcadeDrive(0.5, 0); // Goes forward for 0.6 seconds
-		} else if (runTime.get() < 5.2) {
+		} else if (runTime.get() < 6.2) {
 			leftScissor.set(ControlMode.Position, SWITCH); // scissor lift raises to switch level
-		} else if (runTime.get() < 5.5) {
+		} else if (runTime.get() < 6.4) {
 			intakeArm.set(DoubleSolenoid.Value.kForward); // release block
 		}
 	}
@@ -389,9 +396,9 @@ public class Robot extends IterativeRobot {
 			rightDrive.set(0.5);
 		} else if (runTime.get() < 4.0) {
 			driveTrain.arcadeDrive(1, 0); // Goes forward for 1.1 seconds
-		} else if (runTime.get() < 7.5) {
+		} else if (runTime.get() < 10.5) {
 			leftScissor.set(ControlMode.Position, SWITCH); // scissor lift raises to switch level
-		} else if (runTime.get() < 7.8) {
+		} else if (runTime.get() < 10.7) {
 			intakeArm.set(DoubleSolenoid.Value.kForward); // release block
 		}
 	}
@@ -414,9 +421,9 @@ public class Robot extends IterativeRobot {
 			rightDrive.set(-0.5);
 		} else if (runTime.get() < 4.0) {
 			driveTrain.arcadeDrive(1, 0); // Goes forward for 1.1 seconds
-		} else if (runTime.get() < 7.5) {
+		} else if (runTime.get() < 10.5) {
 			leftScissor.set(ControlMode.Position, SWITCH); // scissor lift raises to switch level
-		} else if (runTime.get() < 7.8) {
+		} else if (runTime.get() < 10.7) {
 			intakeArm.set(DoubleSolenoid.Value.kForward); // release block
 		}
 	}
@@ -443,9 +450,9 @@ public class Robot extends IterativeRobot {
 			// Turns left (0.3 seconds)
 			leftDrive.set(-0.5);
 			rightDrive.set(-0.5);
-		} else if (runTime.get() < 7.8) {
+		} else if (runTime.get() < 8.8) {
 			leftScissor.set(ControlMode.Position, SWITCH);
-		} else if (runTime.get() < 8.0) {
+		} else if (runTime.get() < 9.0) {
 			intakeArm.set(DoubleSolenoid.Value.kForward);
 		}
 	}
@@ -466,9 +473,9 @@ public class Robot extends IterativeRobot {
 			// Turns right (0.3 seconds)
 			leftDrive.set(0.5);
 			rightDrive.set(0.5);
-		} else if (runTime.get() < 8.7) {
+		} else if (runTime.get() < 11.7) {
 			leftScissor.set(ControlMode.Position, SWITCH);
-		} else if (runTime.get() < 9.0) {
+		} else if (runTime.get() < 11.9) {
 			intakeArm.set(DoubleSolenoid.Value.kForward);
 		}
 	}
@@ -483,9 +490,9 @@ public class Robot extends IterativeRobot {
 			// Turns left (0.3 seconds)
 			leftDrive.set(-0.5);
 			rightDrive.set(-0.5);
-		} else if (runTime.get() < 6.4) {
+		} else if (runTime.get() < 9.4) {
 			leftScissor.set(ControlMode.Position, SWITCH); // scissor lift raises to switch level
-		} else if (runTime.get() < 6.6) {
+		} else if (runTime.get() < 9.6) {
 			intakeArm.set(DoubleSolenoid.Value.kForward); // release block
 		}
 	}
@@ -519,30 +526,59 @@ public class Robot extends IterativeRobot {
 	 * Programmable four speed arcade drive
 	 */
 	private void drive() {
-		double turnSpeed;
-		if (Math.abs(driver.getRawAxis(0)) > 0.3) {
-			turnSpeed = -driver.getRawAxis(0);
-		} else {
-			turnSpeed = 0;
-		}
-		driveTrain.arcadeDrive(driver.getRawAxis(1), turnSpeed);
-		gear = 5;
-		// Gears of the drive train left joystick
-		if (driver.getYButton()) {
-			// gear 1 40% speed
-			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.4, turnSpeed * 0.4);
-			gear = 2;
-		} else if (driver.getBButton()) { // Listens for A button
-			// While A button is held it executes the normal code at 80%
-			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.6, turnSpeed * 0.6);
-			gear = 3;
-		} else if (driver.getAButton()) {
-			// While B button is held it executes the normal code at 60%
-			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.8, turnSpeed * 0.8);
-			gear = 4;
-		} else if (driver.getXButton()) {
-			driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.3, turnSpeed * 0.3);
-			gear = 1;
+		if (DRIVE_MODE.equals("arcade")) {
+			double turnSpeed;
+			if (Math.abs(driver.getRawAxis(0)) > 0.3) {
+				turnSpeed = -driver.getRawAxis(0);
+			} else {
+				turnSpeed = 0;
+			}
+			driveTrain.arcadeDrive(driver.getRawAxis(1), turnSpeed);
+			gear = 5;
+			// Gears of the drive train left joystick
+			if (driver.getYButton()) {
+				// gear 1 40% speed
+				driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.4, turnSpeed * 0.4);
+				gear = 2;
+			} else if (driver.getBButton()) { // Listens for A button
+				// While A button is held it executes the normal code at 80%
+				driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.6, turnSpeed * 0.6);
+				gear = 3;
+			} else if (driver.getAButton()) {
+				// While B button is held it executes the normal code at 60%
+				driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.8, turnSpeed * 0.8);
+				gear = 4;
+			} else if (driver.getXButton()) {
+				driveTrain.arcadeDrive(driver.getRawAxis(1) * 0.3, turnSpeed * 0.3);
+				gear = 1;
+			}
+		} else if (DRIVE_MODE.equals("tank")) {
+			if (Math.abs(tankDriver.getRawAxis(2) - tankDriver.getRawAxis(5)) > 0.2) {
+				driveTrain.tankDrive(tankDriver.getRawAxis(2), tankDriver.getRawAxis(5));
+			} else {
+				driveTrain.tankDrive(Math.max(tankDriver.getRawAxis(2), tankDriver.getRawAxis(5)),
+						Math.max(tankDriver.getRawAxis(2), tankDriver.getRawAxis(5)));
+			}
+			gear = 5; // 100% speed
+			if (tankDriver.getRawButton(5)) {
+				// left bumper button 80% speed
+				if (Math.abs(tankDriver.getRawAxis(2) - tankDriver.getRawAxis(5)) > 0.2) {
+					driveTrain.tankDrive(tankDriver.getRawAxis(2) * 0.8, tankDriver.getRawAxis(5) * 0.8);
+				} else {
+					driveTrain.tankDrive(0.8 * Math.max(tankDriver.getRawAxis(2), tankDriver.getRawAxis(5)),
+							0.8 * Math.max(tankDriver.getRawAxis(2), tankDriver.getRawAxis(5)));
+				}
+				gear = 4;
+			} else if (tankDriver.getRawButton(6)) {
+				// right bumper button 60% speed
+				if (Math.abs(tankDriver.getRawAxis(2) - tankDriver.getRawAxis(5)) > 0.2) {
+					driveTrain.tankDrive(tankDriver.getRawAxis(2) * 0.6, tankDriver.getRawAxis(5) * 0.6);
+				} else {
+					driveTrain.tankDrive(0.6 * Math.max(tankDriver.getRawAxis(2), tankDriver.getRawAxis(5)),
+							0.6 * Math.max(tankDriver.getRawAxis(2), tankDriver.getRawAxis(5)));
+				}
+				gear = 3;
+			}
 		}
 	}
 
@@ -573,27 +609,12 @@ public class Robot extends IterativeRobot {
 	}
 
 	/*
-	 * controls the winch. back button down start button up
-	 * 
-	 */
-	private void winchControl() {
-		if (operator.getStartButton()) {
-			winch.set(.5);
-		} else if (operator.getBackButton()) {
-			winch.set(-.5);
-		} else {
-			winch.set(0);
-		}
-
-	}
-
-	/*
 	 * controls the movement of the scissor lift.
 	 */
 	private void scissorControl() {
 		// scissor lift right joystick y override
 		if (Math.abs(operator.getRawAxis(5)) > 0.3 && leftScissor.getSelectedSensorPosition(0) >= MAX_HEIGHT) {
-			leftScissor.set(ControlMode.PercentOutput, operator.getRawAxis(5) * 0.8);
+			leftScissor.set(ControlMode.PercentOutput, operator.getRawAxis(5));
 		} else {
 			leftScissor.set(ControlMode.PercentOutput, 0);
 		}
@@ -620,6 +641,35 @@ public class Robot extends IterativeRobot {
 	// right joystick up down
 	private void deployArm() {
 		deploy.set(-operator.getRawAxis(1) * 0.6);
+	}
+
+	/*
+	 * controls the winch. back button down start button up
+	 * 
+	 */
+	private void winchControl() {
+		if (operator.getStartButton()) {
+			winch.set(.5);
+		} else if (operator.getBackButton()) {
+			winch.set(-.5);
+		} else {
+			winch.set(0);
+		}
+
+	}
+
+	/*
+	 * intake lift controls the wheeled intake. right bumper button goes up, left
+	 * bumper button holds in place.
+	 */
+	private void intakeLiftControl() {
+		if (operator.getRawButton(4)) {
+			intakeLift.set(-0.8);
+		} else if (operator.getRawButton(5)) {
+			intakeLift.set(-0.4);
+		} else {
+			intakeLift.set(0);
+		}
 	}
 
 }
