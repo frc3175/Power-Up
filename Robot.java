@@ -39,7 +39,7 @@ public class Robot extends IterativeRobot {
 	/** SET THIS BEFORE MATCH! **/
 	private static final String GOAL = "scale";
 	private static final int LOCATION = 1;
-	private static final String DRIVE_MODE = "arcade";
+	private static final String DRIVE_MODE = "tank";
 
 	// arcade drive speeds
 	private static int gear = 1;
@@ -117,7 +117,7 @@ public class Robot extends IterativeRobot {
 		compressor = new Compressor(0);
 		compressor.setClosedLoopControl(true);
 
-		CameraServer.getInstance().startAutomaticCapture();
+		// CameraServer.getInstance().startAutomaticCapture();
 
 		SmartDashboard.putString("Robot Init", "Initialized!");
 	}
@@ -138,6 +138,7 @@ public class Robot extends IterativeRobot {
 		runTime.start();
 
 		SmartDashboard.putString("Alliance", alliance + Integer.toString(station));
+		SmartDashboard.putString("Position", alliance + Integer.toString(LOCATION));
 		SmartDashboard.putString("Auton Init", "Initialized!");
 	}
 
@@ -146,12 +147,6 @@ public class Robot extends IterativeRobot {
 	 */
 	@Override
 	public void autonomousPeriodic() {
-		// keeps the wheel intake up
-		// if (runTime.get() < 5) {
-		// intakeLift.set(-0.4);
-		// } else {
-		// intakeLift.set(0);
-		// }
 		// flip down the intake arms
 		if (runTime.get() < 0.2) {
 			deploy.set(-0.5);
@@ -553,29 +548,29 @@ public class Robot extends IterativeRobot {
 				gear = 1;
 			}
 		} else if (DRIVE_MODE.equals("tank")) {
-			if (Math.abs(tankDriver.getRawAxis(2) - tankDriver.getRawAxis(5)) > 0.2) {
-				driveTrain.tankDrive(tankDriver.getRawAxis(2), tankDriver.getRawAxis(5));
+			if (Math.abs(tankDriver.getRawAxis(1) - tankDriver.getRawAxis(5)) > 0.2) {
+				driveTrain.tankDrive(-tankDriver.getRawAxis(1), -tankDriver.getRawAxis(5));
 			} else {
-				driveTrain.tankDrive(Math.max(tankDriver.getRawAxis(2), tankDriver.getRawAxis(5)),
-						Math.max(tankDriver.getRawAxis(2), tankDriver.getRawAxis(5)));
+				driveTrain.tankDrive(-Math.max(tankDriver.getRawAxis(1), tankDriver.getRawAxis(5)),
+						-Math.max(tankDriver.getRawAxis(1), tankDriver.getRawAxis(5)));
 			}
 			gear = 5; // 100% speed
 			if (tankDriver.getRawButton(5)) {
 				// left bumper button 80% speed
-				if (Math.abs(tankDriver.getRawAxis(2) - tankDriver.getRawAxis(5)) > 0.2) {
-					driveTrain.tankDrive(tankDriver.getRawAxis(2) * 0.8, tankDriver.getRawAxis(5) * 0.8);
+				if (Math.abs(tankDriver.getRawAxis(1) - tankDriver.getRawAxis(5)) > 0.2) {
+					driveTrain.tankDrive(-tankDriver.getRawAxis(1) * 0.8, -tankDriver.getRawAxis(5) * 0.8);
 				} else {
-					driveTrain.tankDrive(0.8 * Math.max(tankDriver.getRawAxis(2), tankDriver.getRawAxis(5)),
-							0.8 * Math.max(tankDriver.getRawAxis(2), tankDriver.getRawAxis(5)));
+					driveTrain.tankDrive(-0.8 * Math.max(tankDriver.getRawAxis(1), tankDriver.getRawAxis(5)),
+							-0.8 * Math.max(tankDriver.getRawAxis(1), tankDriver.getRawAxis(5)));
 				}
 				gear = 4;
 			} else if (tankDriver.getRawButton(6)) {
-				// right bumper button 60% speed
-				if (Math.abs(tankDriver.getRawAxis(2) - tankDriver.getRawAxis(5)) > 0.2) {
-					driveTrain.tankDrive(tankDriver.getRawAxis(2) * 0.6, tankDriver.getRawAxis(5) * 0.4);
+				// right bumper button 40% speed
+				if (Math.abs(tankDriver.getRawAxis(1) - tankDriver.getRawAxis(5)) > 0.2) {
+					driveTrain.tankDrive(-tankDriver.getRawAxis(1) * 0.4, -tankDriver.getRawAxis(5) * 0.4);
 				} else {
-					driveTrain.tankDrive(0.4 * Math.max(tankDriver.getRawAxis(2), tankDriver.getRawAxis(5)),
-							0.4 * Math.max(tankDriver.getRawAxis(2), tankDriver.getRawAxis(5)));
+					driveTrain.tankDrive(-0.4 * Math.max(tankDriver.getRawAxis(1), tankDriver.getRawAxis(5)),
+							-0.4 * Math.max(tankDriver.getRawAxis(1), tankDriver.getRawAxis(5)));
 				}
 				gear = 2;
 			}
@@ -663,9 +658,9 @@ public class Robot extends IterativeRobot {
 	 * bumper button holds in place.
 	 */
 	private void intakeLiftControl() {
-		if (operator.getRawButton(4)) {
+		if (operator.getRawButton(5)) {
 			intakeLift.set(-0.8);
-		} else if (operator.getRawButton(5)) {
+		} else if (operator.getRawButton(6)) {
 			intakeLift.set(-0.4);
 		} else {
 			intakeLift.set(0);
