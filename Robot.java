@@ -32,19 +32,21 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
  */
 public class Robot extends IterativeRobot {
 
-	// the angle of the wheeled intake towards the switch
-	private static final double INTAKE_SWITCH = 0.2;
-	// the angle of the wheeled intake at ground level
-	private static final double INTAKE_GROUND = 0.6;
-
-	/** SET THIS BEFORE MATCH! **/
+	/** SET THESE BEFORE MATCH! **/
 	private static final int LOCATION = 1;
-	private static final String DRIVE_MODE = "tank";
+	// 0 left 1 right
+	private static final String autonMode = "cross";
+	// "cross" for crossing, "switch" for switch
 
-	// arcade drive speeds
+	// the angle of the wheeled intake towards the switch
+	private static final double INTAKE_SWITCH = -0.1 * 4096;
+	// the angle of the wheeled intake at ground level
+	private static final double INTAKE_GROUND = -0.32 * 4096;
+
+	// drive speeds
 	private static int gear = 1;
 
-	private Timer runTime = new Timer();
+	private Timer runTime;
 
 	// Joystick
 	private Joystick driver;
@@ -108,10 +110,14 @@ public class Robot extends IterativeRobot {
 		intakeLift.config_kI(0, 0.0, 10);
 		intakeLift.config_kD(0, 0.0, 10);
 
+		intakeLift.setSelectedSensorPosition(0, 0, 10);
+
 		// initialize pneumatics
 		intakeArm = new DoubleSolenoid(4, 5);
 		compressor = new Compressor(0);
 		compressor.setClosedLoopControl(true);
+
+		runTime = new Timer();
 
 		SmartDashboard.putString("Robot Init", "Initialized!");
 	}
@@ -150,12 +156,18 @@ public class Robot extends IterativeRobot {
 	 */
 	@Override
 	public void autonomousPeriodic() {
-		if ((field.charAt(0) == 'L' && LOCATION == 0) || (field.charAt(0) == 'R' && LOCATION == 1)) {
-			// 0 is left, 1 is right
-			switchDump();
-		} else {
-			if (runTime.get() < 1.5) {
+		if (autonMode.equals("cross")) {
+			if (runTime.get() < 2) {
 				driveTrain.arcadeDrive(0.75, 0);
+			}
+		} else if (autonMode.equals("switch")) {
+			if ((field.charAt(0) == 'L' && LOCATION == 0) || (field.charAt(0) == 'R' && LOCATION == 1)) {
+				// 0 is left, 1 is right
+				switchDump();
+			} else {
+				if (runTime.get() < 1.5) {
+					driveTrain.arcadeDrive(0.75, 0);
+				}
 			}
 		}
 	}
@@ -188,10 +200,11 @@ public class Robot extends IterativeRobot {
 		if (runTime.get() < 1.5) {
 			driveTrain.arcadeDrive(0.75, 0);
 			// drive to switch and suddenly stops
-		} else if (runTime.get() < 2.5 && intakeLift.getSelectedSensorPosition(0) < 4096.0 * INTAKE_SWITCH) {
-			intakeLift.set(ControlMode.PercentOutput, 0.5);
+			// } else if (runTime.get() < 2.5 && intakeLift.getSelectedSensorPosition(0) <
+			// 4096.0 * INTAKE_SWITCH) {
+			// intakeLift.set(ControlMode.PercentOutput, 0.5);
 			// lower the intake to the switch level
-		} else if (runTime.get() < 3.5) {
+		} else if (runTime.get() < 3) {
 			intake.set(-0.75);
 			// shoot the block
 		} else {
@@ -250,6 +263,15 @@ public class Robot extends IterativeRobot {
 			}
 			gear = 1;
 		}
+		if (driver.getPOV() == 0) {
+			driveTrain.arcadeDrive(0.6, 0);
+		} else if (driver.getPOV() == 180) {
+			driveTrain.arcadeDrive(-0.6, 0);
+		} else if (driver.getPOV() == 90) {
+			driveTrain.arcadeDrive(0.3, 0.5);
+		} else if (driver.getPOV() == 270) {
+			driveTrain.arcadeDrive(0.3, -0.5);
+		}
 	}
 
 	/*
@@ -257,10 +279,10 @@ public class Robot extends IterativeRobot {
 	 */
 	private void intakeControl() {
 		// Operator Stick Intakes
-		if (operator.getAButton()) {
-			intake.set(1); // A spit out
-		} else if (operator.getBButton()) {
-			intake.set(-0.5); // B intake
+		if (operator.getBButton()) {
+			intake.set(0.75); // B intakes
+		} else if (operator.getAButton()) {
+			intake.set(-0.8); // A spit out
 		} else {
 			intake.set(0); // stop motor
 		}
@@ -299,12 +321,14 @@ public class Robot extends IterativeRobot {
 			intakeLift.set(ControlMode.PercentOutput, 0);
 		}
 
-		if (operator.getRawButton(5)) {
+		if (operator.getPOV() == 0) {
 			// left bumper to switch level
-			intakeLift.set(ControlMode.Position, 4096.0 * INTAKE_SWITCH);
-		} else if (operator.getRawButton(6)) {
+			intakeLift.set(ControlMode.Position, INTAKE_SWITCH);
+			SmartDashboard.putString("Intake Position: ", "Switch");
+		} else if (operator.getPOV() == 180) {
 			// right bumper to ground level
-			intakeLift.set(ControlMode.Position, 4096.0 * INTAKE_GROUND);
+			intakeLift.set(ControlMode.Position, INTAKE_GROUND);
+			SmartDashboard.putString("Intake Position: ", "Ground");
 		}
 	}
 
